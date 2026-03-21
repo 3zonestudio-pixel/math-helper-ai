@@ -14,29 +14,60 @@ class OcrService {
 
   Future<String> recognizeText(String imagePath) async {
     try {
-      // Preprocess image for better OCR accuracy
+      // === MULTI-PASS OCR: try both original and preprocessed, keep best ===
+      final originalResult = await _recognizeSingle(imagePath);
+
       final preprocessedPath = await _preprocessImage(imagePath);
-      final pathToUse = preprocessedPath ?? imagePath;
-
-      final inputImage = InputImage.fromFilePath(pathToUse);
-      final recognizedText = await textRecognizer.processImage(inputImage);
-
-      // Clean up temp file
-      if (preprocessedPath != null && preprocessedPath != imagePath) {
+      String preprocessedResult = '';
+      if (preprocessedPath != null) {
+        preprocessedResult = await _recognizeSingle(preprocessedPath);
         try { File(preprocessedPath).deleteSync(); } catch (_) {}
       }
 
-      if (recognizedText.text.isEmpty) {
-        return '';
-      }
+      // Pick the result with more math-like content
+      final best = _pickBestResult(originalResult, preprocessedResult);
+      if (best.isEmpty) return '';
 
-      // Use structural analysis for superscript/subscript detection
-      final structuralText = _extractWithStructure(recognizedText);
-
-      return _cleanMathText(structuralText);
+      return _cleanMathText(best);
     } catch (e) {
       return '';
     }
+  }
+
+  /// Run OCR on a single image path, returning structural text
+  Future<String> _recognizeSingle(String path) async {
+    try {
+      final inputImage = InputImage.fromFilePath(path);
+      final recognizedText = await textRecognizer.processImage(inputImage);
+      if (recognizedText.text.isEmpty) return '';
+      return _extractWithStructure(recognizedText);
+    } catch (_) {
+      return '';
+    }
+  }
+
+  /// Pick whichever OCR result looks more like a math expression
+  String _pickBestResult(String a, String b) {
+    if (a.isEmpty) return b;
+    if (b.isEmpty) return a;
+    final scoreA = _mathScore(a);
+    final scoreB = _mathScore(b);
+    return scoreB > scoreA ? b : a;
+  }
+
+  /// Score how "math-like" text is (higher = more math symbols/patterns)
+  int _mathScore(String text) {
+    int score = 0;
+    const mathChars = '0123456789+-×÷*/=()[]{}xyzπ∫√∂∞²³⁴⁵⁶⁷⁸⁹≤≥≠≈αβγδθσΣΔΩ';
+    for (final ch in text.split('')) {
+      if (mathChars.contains(ch)) score += 2;
+    }
+    // Bonus for known math patterns
+    if (RegExp(r'[a-zA-Z]\s*[²³⁴⁵⁶⁷⁸⁹^]').hasMatch(text)) score += 10;
+    if (RegExp(r'\d\s*[+\-×÷*/]\s*\d').hasMatch(text)) score += 5;
+    if (text.contains('=')) score += 5;
+    if (RegExp(r'(?:sin|cos|tan|log|ln|lim|∫|√|d/d)', caseSensitive: false).hasMatch(text)) score += 15;
+    return score;
   }
 
   Future<String> recognizeTextFromFile(File file) async {
@@ -535,8 +566,92 @@ class OcrService {
       RegExp(r'(?<=\d)[lI](?=\d)'),
       (m) => '1',
     );
+    // 'B' between digits → 8
+    cleaned = cleaned.replaceAllMapped(
+      RegExp(r'(?<=\d)B(?=\d)'),
+      (m) => '8',
+    );
+    // 'S' between digits → 5
+    cleaned = cleaned.replaceAllMapped(
+      RegExp(r'(?<=\d)S(?=\d)'),
+      (m) => '5',
+    );
+    // 'Z' between digits → 2
+    cleaned = cleaned.replaceAllMapped(
+      RegExp(r'(?<=\d)Z(?=\d)'),
+      (m) => '2',
+    );
+
+    // ═══════════════════════════════════════════════════
+    // 8. BRACKET BALANCING
+    // ═══════════════════════════════════════════════════
+    cleaned = _balanceBrackets(cleaned);
+
+    // ═══════════════════════════════════════════════════
+    // 9. FINAL MATH VALIDATION PASS
+    // ═══════════════════════════════════════════════════
+    cleaned = _finalMathValidation(cleaned);
 
     return cleaned;
+  }
+
+  /// Balance unmatched brackets/parentheses
+  String _balanceBrackets(String text) {
+    int parenCount = 0;
+    int bracketCount = 0;
+    int braceCount = 0;
+    for (final ch in text.split('')) {
+      switch (ch) {
+        case '(': parenCount++; break;
+        case ')': parenCount--; break;
+        case '[': bracketCount++; break;
+        case ']': bracketCount--; break;
+        case '{': braceCount++; break;
+        case '}': braceCount--; break;
+      }
+    }
+    String result = text;
+    // Add missing closing brackets
+    while (parenCount > 0) { result += ')'; parenCount--; }
+    while (bracketCount > 0) { result += ']'; bracketCount--; }
+    while (braceCount > 0) { result += '}'; braceCount--; }
+    // Add missing opening brackets at start
+    while (parenCount < 0) { result = '($result'; parenCount++; }
+    while (bracketCount < 0) { result = '[$result'; bracketCount++; }
+    while (braceCount < 0) { result = '{$result'; braceCount++; }
+    return result;
+  }
+
+  /// Final cleanup: fix common leftover OCR artifacts
+  String _finalMathValidation(String text) {
+    String result = text;
+
+    // Remove non-math garbage chars that OCR sometimes adds
+    result = result.replaceAll(RegExp(r'[~`@#\$&_\\]'), '');
+
+    // Fix doubled operators: "++", "--" (not valid), "+ +" etc.
+    result = result.replaceAll(RegExp(r'\+\s*\+'), '+');
+    result = result.replaceAll(RegExp(r'(?<!\w)-\s*-(?!\w)'), '+');  // double minus = plus
+    result = result.replaceAll(RegExp(r'×\s*×'), '×');
+    result = result.replaceAll(RegExp(r'÷\s*÷'), '÷');
+    result = result.replaceAll(RegExp(r'=\s*='), '=');
+
+    // Fix "= =" → "="
+    result = result.replaceAll(RegExp(r'=\s+='), '=');
+
+    // Remove trailing operators (OCR noise): "+ " or "= " at end
+    result = result.replaceAll(RegExp(r'[+\-×÷*/]\s*$'), '').trim();
+
+    // Remove leading operators (except minus for negative): "+ 3x" → "3x"
+    result = result.replaceAll(RegExp(r'^[+×÷*/]\s*'), '');
+
+    // Ensure there's content between operators and equals
+    // "3x = " → keep as is, it's a valid partial equation
+
+    // Final space cleanup
+    result = result.replaceAll(RegExp(r'\s+'), ' ').trim();
+
+    return result;
   }
 
   void dispose() {
