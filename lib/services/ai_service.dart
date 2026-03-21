@@ -380,8 +380,8 @@ CRITICAL RULES — You MUST follow these:
    - Use ^ for exponents: x^2, not x² or \\(x^2\\)
    - Use sqrt() for square root: sqrt(9) = 3
    - Use fractions as: (a)/(b) or a/b
-   - NEVER use LaTeX commands: NO $, NO \\frac, NO \\sqrt, NO \\(, NO \\), NO \\[, NO \\]
-   - NEVER wrap math in dollar signs $ or any LaTeX delimiters
+   - NEVER use LaTeX commands: NO \$, NO \\frac, NO \\sqrt, NO \\(, NO \\), NO \\[, NO \\]
+   - NEVER wrap math in dollar signs \$ or any LaTeX delimiters
    - Use Unicode symbols: ², ³, √, π, ±, ≠, ≤, ≥, ∫ when helpful
 
 RESPONSE FORMAT (follow exactly):
