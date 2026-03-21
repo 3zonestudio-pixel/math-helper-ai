@@ -62,8 +62,9 @@ class MathText extends StatelessWidget {
     // Convert common math notation to LaTeX
     final latex = _toLatex(text);
 
+    // Try rendering as a single LaTeX block first
     try {
-      return Math.tex(
+      final widget = Math.tex(
         latex,
         textStyle: TextStyle(
           fontSize: fontSize,
@@ -71,23 +72,37 @@ class MathText extends StatelessWidget {
           fontWeight: fontWeight,
         ),
       );
+      // Validate by building — Math.tex may defer errors
+      return widget;
     } catch (_) {
-      // If LaTeX parsing fails, show plain text
-      return Text(
-        text,
-        textAlign: textAlign,
-        style: TextStyle(
-          fontSize: fontSize,
-          color: textColor,
-          fontWeight: fontWeight,
-          height: 1.5,
-        ),
-      );
+      // pass
     }
+
+    // Fallback: render as plain text
+    return Text(
+      text,
+      textAlign: textAlign,
+      style: TextStyle(
+        fontSize: fontSize,
+        color: textColor,
+        fontWeight: fontWeight,
+        height: 1.5,
+      ),
+    );
   }
 
   String _toLatex(String input) {
     String latex = input;
+
+    // Strip LaTeX dollar-sign delimiters that cause parser errors
+    latex = latex.replaceAll(r'$$', '');
+    latex = latex.replaceAll(r'$', '');
+
+    // Strip \( \) and \[ \] delimiters
+    latex = latex.replaceAll(r'\(', '');
+    latex = latex.replaceAll(r'\)', '');
+    latex = latex.replaceAll(r'\[', '');
+    latex = latex.replaceAll(r'\]', '');
 
     // Already LaTeX — return as-is
     if (latex.contains(r'\frac') || latex.contains(r'\int') || latex.contains(r'\sqrt')) {

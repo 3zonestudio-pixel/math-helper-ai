@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/app_provider.dart';
 import '../constants.dart';
+import '../services/ai_service.dart';
 import '../theme.dart';
 import 'privacy_policy_screen.dart';
 import 'terms_screen.dart';
@@ -15,6 +16,10 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+
+  Future<int> _getRemainingRequests() async {
+    return AiService.getRemainingRequests();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -164,6 +169,55 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 },
               ),
             ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // AI Requests Remaining
+          _buildSectionHeader('AI', Icons.smart_toy, isDark),
+          FutureBuilder<int>(
+            future: _getRemainingRequests(),
+            builder: (context, snapshot) {
+              final remaining = snapshot.data ?? 1500;
+              return Card(
+                child: ListTile(
+                  leading: Icon(Icons.bolt, color: AppTheme.accentCyan),
+                  title: Text(
+                    'Daily AI Requests',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : AppTheme.textDark,
+                    ),
+                  ),
+                  subtitle: Text(
+                    '$remaining / 1500 remaining today',
+                    style: TextStyle(
+                      color: remaining < 100 ? AppTheme.errorRed : (isDark ? AppTheme.textLight.withAlpha(153) : Colors.grey[600]),
+                    ),
+                  ),
+                  trailing: Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: remaining < 100
+                          ? AppTheme.errorRed.withAlpha(25)
+                          : AppTheme.accentGreen.withAlpha(25),
+                    ),
+                    child: Center(
+                      child: Text(
+                        remaining > 999 ? '${(remaining / 1000).toStringAsFixed(1)}k' : '$remaining',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: remaining < 100 ? AppTheme.errorRed : AppTheme.accentGreen,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
           ),
 
           const SizedBox(height: 20),

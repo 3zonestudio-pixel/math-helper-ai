@@ -280,7 +280,7 @@ RULES:
               {'role': 'user', 'content': normalizedProblem},
             ],
             'temperature': 0.1,
-            'max_tokens': 2048,
+            'max_tokens': 4096,
           }),
         ).timeout(const Duration(seconds: 45));
 
@@ -363,17 +363,36 @@ CRITICAL RULES — You MUST follow these:
    - If multiple interpretations exist, pick the most common/likely one and mention alternatives
    - Recognize ALL math domains: algebra, calculus, geometry, trigonometry, statistics, number theory, linear algebra, differential equations
 
-3. ALWAYS provide a clear, correct answer. Show your work step by step.
-4. If the problem is ambiguous, solve the most likely interpretation and briefly note the ambiguity.
-5. Use proper math notation in your response (², √, π, ∫, etc.)
+3. ACCURACY IS CRITICAL:
+   - ALWAYS provide the COMPLETE and CORRECT answer. Double-check your work.
+   - For equations, find ALL solutions (e.g. quadratic has 2 roots, not just 1)
+   - Show verification: substitute your answer back into the original equation to prove it’s correct
+   - If the problem is ambiguous, solve the most likely interpretation and briefly note the ambiguity
 
-RESPONSE FORMAT:
-SOLUTION: [final answer]
+4. STEP FORMAT:
+   - Show every step clearly so a student can follow along
+   - Each step should explain WHAT you’re doing and WHY
+   - Include the actual computation at each step
+   - For equations: show the equation transformation at each step
+
+5. NOTATION RULES (VERY IMPORTANT):
+   - Use PLAIN TEXT math notation only: +, -, *, /, =, ^, etc.
+   - Use ^ for exponents: x^2, not x² or \\(x^2\\)
+   - Use sqrt() for square root: sqrt(9) = 3
+   - Use fractions as: (a)/(b) or a/b
+   - NEVER use LaTeX commands: NO $, NO \\frac, NO \\sqrt, NO \\(, NO \\), NO \\[, NO \\]
+   - NEVER wrap math in dollar signs $ or any LaTeX delimiters
+   - Use Unicode symbols: ², ³, √, π, ±, ≠, ≤, ≥, ∫ when helpful
+
+RESPONSE FORMAT (follow exactly):
+SOLUTION: [complete final answer with ALL solutions]
 STEP 1: [title]
-[description]
+[detailed description with computation]
 STEP 2: [title]
-[description]
-TIP: [helpful tip or insight]''';
+[detailed description with computation]
+STEP 3: [title]
+[detailed description with computation]
+TIP: [helpful tip or insight about this type of problem]''';
   }
 
   MathProblem _parseAiResponse(
@@ -383,7 +402,41 @@ TIP: [helpful tip or insight]''';
     String difficulty,
     String category,
   ) {
-    final lines = content.split('\n');
+    // Strip LaTeX delimiters the AI may still include despite instructions
+    String cleaned = content;
+    cleaned = cleaned.replaceAll('\$\$', '');
+    cleaned = cleaned.replaceAll('\$', '');
+    cleaned = cleaned.replaceAll('\\(', '');
+    cleaned = cleaned.replaceAll('\\)', '');
+    cleaned = cleaned.replaceAll('\\[', '');
+    cleaned = cleaned.replaceAll('\\]', '');
+    // Convert common LaTeX commands to unicode
+    cleaned = cleaned.replaceAll('\\cdot', '·');
+    cleaned = cleaned.replaceAll('\\times', '×');
+    cleaned = cleaned.replaceAll('\\div', '÷');
+    cleaned = cleaned.replaceAll('\\pm', '±');
+    cleaned = cleaned.replaceAll('\\neq', '≠');
+    cleaned = cleaned.replaceAll('\\leq', '≤');
+    cleaned = cleaned.replaceAll('\\geq', '≥');
+    cleaned = cleaned.replaceAll('\\pi', 'π');
+    cleaned = cleaned.replaceAll('\\infty', '∞');
+    cleaned = cleaned.replaceAll('\\sqrt', '√');
+    cleaned = cleaned.replaceAll('\\int', '∫');
+    cleaned = cleaned.replaceAll('\\sum', '∑');
+    cleaned = cleaned.replaceAll('\\Delta', 'Δ');
+    cleaned = cleaned.replaceAll('\\text', '');
+    cleaned = cleaned.replaceAll('\\quad', ' ');
+    cleaned = cleaned.replaceAll('\\,', ' ');
+    // Strip remaining backslash commands, keep content after
+    cleaned = cleaned.replaceAllMapped(
+      RegExp(r'\\([a-zA-Z]+)'),
+      (m) => m[1] ?? '',
+    );
+    // Clean up LaTeX braces: {content} → content
+    cleaned = cleaned.replaceAll('{', '');
+    cleaned = cleaned.replaceAll('}', '');
+
+    final lines = cleaned.split('\n');
     String solution = '';
     List<SolutionStep> steps = [];
     int stepCount = 0;
