@@ -25,6 +25,16 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Decode keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEY_PROPERTIES: ${{ secrets.KEY_PROPERTIES }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > android/math_helper_release.keystore
+            echo "$KEY_PROPERTIES" > android/key.properties
+          fi
+
       - name: Get dependencies
         run: flutter pub get
 
