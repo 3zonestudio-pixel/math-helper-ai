@@ -29,18 +29,6 @@ class LogoWidget extends StatelessWidget {
       ),
       child: CustomPaint(
         painter: _LogoPainter(logoSize: size),
-        child: Align(
-          alignment: const Alignment(0.38, -0.38),
-          child: Text(
-            '\u00B2',
-            style: TextStyle(
-              fontSize: size * 0.32,
-              fontWeight: FontWeight.w800,
-              color: AppTheme.accentCyan,
-              height: 1,
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -54,6 +42,52 @@ class _LogoPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     _drawScanCorners(canvas, size);
     _drawCurvedX(canvas, size);
+    _drawSuperscript2(canvas, size);
+  }
+
+  void _drawSuperscript2(Canvas canvas, Size size) {
+    // Position to upper-right of x
+    final s = size.width * 0.11;
+    final ox = size.width * 0.64;
+    final oy = size.height * 0.28;
+    final strokeW = size.width * 0.032;
+
+    final glowPaint = Paint()
+      ..color = AppTheme.accentCyan.withAlpha(30)
+      ..strokeWidth = strokeW + 4
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+
+    final paint = Paint()
+      ..color = AppTheme.accentCyan
+      ..strokeWidth = strokeW
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    // Curved "2": top arc + diagonal swoop
+    final path = Path()
+      ..moveTo(ox - s * 0.65, oy - s * 0.15)
+      ..cubicTo(
+        ox - s * 0.55, oy - s * 1.05,
+        ox + s * 0.85, oy - s * 1.05,
+        ox + s * 0.7, oy + s * 0.05,
+      )
+      ..cubicTo(
+        ox + s * 0.5, oy + s * 0.55,
+        ox + s * 0.05, oy + s * 0.7,
+        ox - s * 0.7, oy + s * 0.85,
+      );
+
+    // Bottom bar
+    final bar = Path()
+      ..moveTo(ox - s * 0.75, oy + s * 0.85)
+      ..lineTo(ox + s * 0.75, oy + s * 0.85);
+
+    canvas.drawPath(path, glowPaint);
+    canvas.drawPath(bar, glowPaint);
+    canvas.drawPath(path, paint);
+    canvas.drawPath(bar, paint);
   }
 
   void _drawCurvedX(Canvas canvas, Size size) {
