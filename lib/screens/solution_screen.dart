@@ -51,7 +51,7 @@ class SolutionScreen extends StatelessWidget {
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(24),
                 border: Border.all(
                   color: isDark ? Colors.white.withAlpha(10) : Colors.black.withAlpha(8),
                 ),
@@ -100,7 +100,7 @@ class SolutionScreen extends StatelessWidget {
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: AppTheme.accentGreen.withAlpha(18),
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(22),
                 border: Border.all(color: AppTheme.accentGreen.withAlpha(50)),
               ),
               child: Row(

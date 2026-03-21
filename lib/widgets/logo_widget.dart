@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import '../theme.dart';
 
 class LogoWidget extends StatelessWidget {
@@ -20,7 +21,7 @@ class LogoWidget extends StatelessWidget {
             child: Text(
               'x\u00B2',
               style: TextStyle(
-                fontSize: size * 0.5,
+                fontSize: size * 0.45,
                 fontWeight: FontWeight.w800,
                 color: Colors.white,
                 fontFamily: 'monospace',
@@ -37,37 +38,54 @@ class LogoWidget extends StatelessWidget {
 class _LogoPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final cornerLength = size.width * 0.25;
+    final cornerLength = size.width * 0.28;
+    final cornerRadius = size.width * 0.12;
 
     // Purple corner paint
     final purplePaint = Paint()
       ..color = AppTheme.accentPurple
-      ..strokeWidth = 3
+      ..strokeWidth = 3.5
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
     // Cyan corner paint
     final cyanPaint = Paint()
       ..color = AppTheme.accentCyan
-      ..strokeWidth = 3
+      ..strokeWidth = 3.5
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
-    // Top-left corner (purple)
-    canvas.drawLine(Offset(0, cornerLength), const Offset(0, 0), purplePaint);
-    canvas.drawLine(const Offset(0, 0), Offset(cornerLength, 0), purplePaint);
+    // Top-left corner (purple) — rounded
+    final tlPath = Path()
+      ..moveTo(0, cornerLength)
+      ..lineTo(0, cornerRadius)
+      ..quadraticBezierTo(0, 0, cornerRadius, 0)
+      ..lineTo(cornerLength, 0);
+    canvas.drawPath(tlPath, purplePaint);
 
-    // Top-right corner (cyan)
-    canvas.drawLine(Offset(size.width - cornerLength, 0), Offset(size.width, 0), cyanPaint);
-    canvas.drawLine(Offset(size.width, 0), Offset(size.width, cornerLength), cyanPaint);
+    // Top-right corner (cyan) — rounded
+    final trPath = Path()
+      ..moveTo(size.width - cornerLength, 0)
+      ..lineTo(size.width - cornerRadius, 0)
+      ..quadraticBezierTo(size.width, 0, size.width, cornerRadius)
+      ..lineTo(size.width, cornerLength);
+    canvas.drawPath(trPath, cyanPaint);
 
-    // Bottom-left corner (cyan)
-    canvas.drawLine(Offset(0, size.height - cornerLength), Offset(0, size.height), cyanPaint);
-    canvas.drawLine(Offset(0, size.height), Offset(cornerLength, size.height), cyanPaint);
+    // Bottom-left corner (cyan) — rounded
+    final blPath = Path()
+      ..moveTo(0, size.height - cornerLength)
+      ..lineTo(0, size.height - cornerRadius)
+      ..quadraticBezierTo(0, size.height, cornerRadius, size.height)
+      ..lineTo(cornerLength, size.height);
+    canvas.drawPath(blPath, cyanPaint);
 
-    // Bottom-right corner (purple)
-    canvas.drawLine(Offset(size.width, size.height - cornerLength), Offset(size.width, size.height), purplePaint);
-    canvas.drawLine(Offset(size.width - cornerLength, size.height), Offset(size.width, size.height), purplePaint);
+    // Bottom-right corner (purple) — rounded
+    final brPath = Path()
+      ..moveTo(size.width, size.height - cornerLength)
+      ..lineTo(size.width, size.height - cornerRadius)
+      ..quadraticBezierTo(size.width, size.height, size.width - cornerRadius, size.height)
+      ..lineTo(size.width - cornerLength, size.height);
+    canvas.drawPath(brPath, purplePaint);
   }
 
   @override

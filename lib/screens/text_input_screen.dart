@@ -95,7 +95,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
               child: Container(
                 decoration: BoxDecoration(
                   color: isDark ? AppTheme.cardDark : Colors.white,
-                  borderRadius: BorderRadius.circular(20),
+                  borderRadius: BorderRadius.circular(24),
                   border: Border.all(
                     color: _showInputError
                         ? AppTheme.errorRed
@@ -150,7 +150,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
                 color: mathProvider.isLoading
                     ? (isDark ? AppTheme.surfaceDark : Colors.grey[300])
                     : null,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(22),
                 boxShadow: mathProvider.isLoading
                     ? null
                     : [
@@ -167,7 +167,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
                   onTap: mathProvider.isLoading
                       ? null
                       : () => _solve(context, appProvider, mathProvider),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(22),
                   child: Center(
                     child: mathProvider.isLoading
                         ? const SizedBox(

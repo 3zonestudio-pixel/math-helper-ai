@@ -47,7 +47,7 @@ class _CameraScreenState extends State<CameraScreen> {
                 child: Container(
                   decoration: BoxDecoration(
                     color: isDark ? AppTheme.cardDark : Colors.white,
-                    borderRadius: BorderRadius.circular(22),
+                    borderRadius: BorderRadius.circular(28),
                     border: Border.all(
                       color: isDark
                           ? Colors.white.withAlpha(10)
@@ -93,7 +93,7 @@ class _CameraScreenState extends State<CameraScreen> {
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
                     color: AppTheme.errorRed.withAlpha(15),
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: AppTheme.errorRed.withAlpha(40)),
                   ),
                   child: Row(
@@ -148,7 +148,7 @@ class _CameraScreenState extends State<CameraScreen> {
                   height: 56,
                   decoration: BoxDecoration(
                     gradient: AppTheme.primaryGradient,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: BorderRadius.circular(22),
                     boxShadow: [
                       BoxShadow(
                         color: AppTheme.accentPurple.withAlpha(50),
@@ -161,7 +161,7 @@ class _CameraScreenState extends State<CameraScreen> {
                     color: Colors.transparent,
                     child: InkWell(
                       onTap: () => _solveRecognizedText(context),
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(22),
                       child: Center(
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -202,7 +202,7 @@ class _CameraScreenState extends State<CameraScreen> {
           height: 80,
           decoration: BoxDecoration(
             color: AppTheme.accentPurple.withAlpha(18),
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(28),
           ),
           child: Icon(
             Icons.document_scanner_rounded,
@@ -249,7 +249,7 @@ class _CameraScreenState extends State<CameraScreen> {
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
                   color: AppTheme.accentGreen.withAlpha(25),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(Icons.text_fields_rounded,
                     color: AppTheme.accentGreen, size: 16),
@@ -294,13 +294,13 @@ class _CameraScreenState extends State<CameraScreen> {
       color: Colors.transparent,
       child: InkWell(
         onTap: _isProcessing ? null : onTap,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(22),
         child: Ink(
           height: 74,
           decoration: BoxDecoration(
             gradient: _isProcessing ? null : gradient,
             color: _isProcessing ? Colors.grey.withAlpha(50) : null,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(22),
             boxShadow: _isProcessing
                 ? null
                 : [

@@ -233,11 +233,11 @@ class _HomeScreenState extends State<HomeScreen> {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         child: Ink(
           decoration: BoxDecoration(
             gradient: gradient,
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
                 color: gradient.colors.first.withAlpha(50),
@@ -255,7 +255,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   height: 52,
                   decoration: BoxDecoration(
                     color: Colors.white.withAlpha(38),
-                    borderRadius: BorderRadius.circular(15),
+                    borderRadius: BorderRadius.circular(18),
                   ),
                   child: Icon(icon, color: Colors.white, size: 26),
                 ),
@@ -289,7 +289,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   height: 36,
                   decoration: BoxDecoration(
                     color: Colors.white.withAlpha(30),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: const Icon(Icons.arrow_forward_rounded,
                       color: Colors.white, size: 18),
@@ -344,7 +344,7 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 16),
       decoration: BoxDecoration(
         color: isDark ? AppTheme.cardDark : Colors.white,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(22),
         border: Border.all(
           color: isDark ? Colors.white.withAlpha(10) : Colors.black.withAlpha(8),
         ),
@@ -356,7 +356,7 @@ class _HomeScreenState extends State<HomeScreen> {
             height: 40,
             decoration: BoxDecoration(
               color: color.withAlpha(25),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Icon(icon, color: color, size: 20),
           ),
