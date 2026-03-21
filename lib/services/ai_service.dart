@@ -115,14 +115,10 @@ class AiService {
 
     // Normalize spelling errors in input
     final normalizedProblem = _normalizeSpelling(problem);
-
-    // Solve locally first for problems the built-in solver handles instantly
     final lowerProblem = normalizedProblem.toLowerCase().trim();
-    if (_isBasicArithmetic(lowerProblem) ||
-        _isLinearEquation(lowerProblem) ||
-        _isQuadraticEquation(lowerProblem) ||
-        _isIntegral(lowerProblem) ||
-        _isDerivative(lowerProblem)) {
+
+    // Only use local solver instantly for basic arithmetic (always accurate)
+    if (_isBasicArithmetic(lowerProblem)) {
       final result = _solveLocally(
         problem: problem,
         language: language,
@@ -133,7 +129,19 @@ class AiService {
       return result;
     }
 
-    if (!isConfigured) {
+    // Check if we can reach the API
+    bool isOnline = isConfigured;
+    if (isOnline) {
+      try {
+        final connectivity = await Connectivity().checkConnectivity();
+        if (connectivity.every((r) => r == ConnectivityResult.none)) {
+          isOnline = false;
+        }
+      } catch (_) {}
+    }
+
+    // If offline or not configured, use local solver
+    if (!isOnline) {
       final result = _solveLocally(
         problem: normalizedProblem,
         language: language,
@@ -144,21 +152,7 @@ class AiService {
       return result;
     }
 
-    // Quick network check — skip API if offline
-    try {
-      final connectivity = await Connectivity().checkConnectivity();
-      if (connectivity.every((r) => r == ConnectivityResult.none)) {
-        final result = _solveLocally(
-          problem: normalizedProblem,
-          language: language,
-          difficulty: difficulty,
-          category: category,
-        );
-        _addToCache(key, result);
-        return result;
-      }
-    } catch (_) {}
-
+    // Try AI for all non-arithmetic problems
     try {
       final systemPrompt = _buildSystemPrompt(language, difficulty, explanationMode);
       final response = await _httpClient.post(
@@ -176,7 +170,7 @@ class AiService {
           'temperature': 0.1,
           'max_tokens': 2048,
         }),
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);

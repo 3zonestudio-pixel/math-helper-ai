@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../providers/app_provider.dart';
-import '../services/ai_service.dart';
 import '../constants.dart';
 import '../theme.dart';
 import 'privacy_policy_screen.dart';
@@ -16,16 +15,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final _apiKeyController = TextEditingController();
-  final _apiUrlController = TextEditingController();
-  bool _showApiKey = false;
-
-  @override
-  void dispose() {
-    _apiKeyController.dispose();
-    _apiUrlController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -196,98 +185,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(height: 20),
 
-          // AI Configuration
-          _buildSectionHeader(l10n.aiConfiguration, Icons.smart_toy, isDark),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    l10n.apiKeyLabel,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : AppTheme.textDark,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    l10n.poweredByAI,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isDark
-                          ? AppTheme.textLight.withAlpha(153)
-                          : Colors.grey[600],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _apiKeyController,
-                    obscureText: !_showApiKey,
-                    decoration: InputDecoration(
-                      hintText: l10n.apiKeyLabel,
-                      suffixIcon: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: Icon(
-                              _showApiKey ? Icons.visibility_off : Icons.visibility,
-                              size: 20,
-                            ),
-                            onPressed: () => setState(() => _showApiKey = !_showApiKey),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.check, size: 20, color: AppTheme.accentGreen),
-                            onPressed: _saveApiConfig,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _apiUrlController,
-                    decoration: InputDecoration(
-                      hintText: l10n.apiUrl,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.accentCyan.withAlpha(13),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          AiService.isConfigured ? Icons.check_circle : Icons.info_outline,
-                          color: AiService.isConfigured ? AppTheme.accentGreen : AppTheme.accentCyan,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            AiService.isConfigured
-                                ? '${l10n.apiConfigured} \u2713'
-                                : l10n.apiNotConfigured,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: isDark ? AppTheme.textLight : Colors.grey[700],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
           // Legal
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -385,23 +282,4 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _saveApiConfig() {
-    final apiKey = _apiKeyController.text.trim();
-    if (apiKey.isNotEmpty) {
-      AiService.configure(
-        apiKey: apiKey,
-        apiUrl: _apiUrlController.text.trim().isEmpty
-            ? null
-            : _apiUrlController.text.trim(),
-      );
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppLocalizations.of(context)?.apiSaved ?? 'API configuration saved'),
-          backgroundColor: AppTheme.accentGreen,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
-    }
-  }
 }

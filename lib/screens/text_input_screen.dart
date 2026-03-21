@@ -90,23 +90,6 @@ class _TextInputScreenState extends State<TextInputScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Category chips
-            SizedBox(
-              height: 42,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  _buildCategoryChip(l10n.general, 'general', isDark),
-                  _buildCategoryChip(l10n.algebra, 'algebra', isDark),
-                  _buildCategoryChip(l10n.calculus, 'calculus', isDark),
-                  _buildCategoryChip(l10n.geometry, 'geometry', isDark),
-                  _buildCategoryChip(l10n.statistics, 'statistics', isDark),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 18),
-
             // Input field
             Expanded(
               child: Container(
@@ -147,8 +130,8 @@ class _TextInputScreenState extends State<TextInputScreen> {
 
             const SizedBox(height: 14),
 
-            // Quick examples
-            _buildExamples(isDark),
+            // Math symbol keyboard
+            _buildMathKeyboard(isDark),
 
             const SizedBox(height: 12),
 
@@ -250,42 +233,54 @@ class _TextInputScreenState extends State<TextInputScreen> {
     );
   }
 
-  Widget _buildExamples(bool isDark) {
-    final examples = [
-      '2x + 5 = 15',
-      'x\u00B2 + 5x + 6 = 0',
-      '\u222B x\u00B2 dx',
-      'd/dx(x\u00B3 + 2x)',
+  Widget _buildMathKeyboard(bool isDark) {
+    final symbols = [
+      'x', 'y', '²', '³', '^', '√', 'π',
+      '∫', 'd/dx', '(', ')', '+', '-', '×',
+      '÷', '=', '.', '0', '1', '2', '3',
+      '4', '5', '6', '7', '8', '9',
     ];
 
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: examples.map((example) {
-        return ActionChip(
-          label: Text(
-            example,
-            style: TextStyle(
-              fontSize: 12,
-              color: isDark ? AppTheme.accentCyan : AppTheme.accentPurple,
-              fontWeight: FontWeight.w500,
+      spacing: 6,
+      runSpacing: 6,
+      children: symbols.map((symbol) {
+        return SizedBox(
+          width: symbol.length > 2 ? 56 : 40,
+          height: 38,
+          child: Material(
+            color: isDark
+                ? AppTheme.cardDark
+                : Colors.grey[100],
+            borderRadius: BorderRadius.circular(10),
+            child: InkWell(
+              onTap: () => _insertSymbol(symbol),
+              borderRadius: BorderRadius.circular(10),
+              child: Center(
+                child: Text(
+                  symbol,
+                  style: TextStyle(
+                    fontSize: symbol.length > 2 ? 12 : 16,
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? AppTheme.accentCyan : AppTheme.accentPurple,
+                  ),
+                ),
+              ),
             ),
           ),
-          backgroundColor: isDark
-              ? AppTheme.accentCyan.withAlpha(18)
-              : AppTheme.accentPurple.withAlpha(18),
-          side: BorderSide(
-            color: isDark
-                ? AppTheme.accentCyan.withAlpha(50)
-                : AppTheme.accentPurple.withAlpha(50),
-          ),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          onPressed: () {
-            _controller.text = example;
-          },
         );
       }).toList(),
     );
+  }
+
+  void _insertSymbol(String symbol) {
+    final text = _controller.text;
+    final selection = _controller.selection;
+    final cursorPos = selection.isValid ? selection.baseOffset : text.length;
+    final newText = text.substring(0, cursorPos) + symbol + text.substring(cursorPos);
+    _controller.text = newText;
+    _controller.selection = TextSelection.collapsed(offset: cursorPos + symbol.length);
+    _focusNode.requestFocus();
   }
 
   Widget _buildLanguageSelector(AppLocalizations l10n, bool isDark) {
