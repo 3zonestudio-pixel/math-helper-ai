@@ -36,20 +36,19 @@ class LogoWidget extends StatelessWidget {
                 TextSpan(
                   text: 'x',
                   style: TextStyle(
-                    fontSize: size * 0.42,
-                    fontWeight: FontWeight.w800,
+                    fontSize: size * 0.32,
+                    fontWeight: FontWeight.w700,
+                    fontStyle: FontStyle.italic,
                     color: Colors.white,
-                    fontFamily: 'monospace',
                     height: 1,
                   ),
                 ),
                 TextSpan(
                   text: '\u00B2',
                   style: TextStyle(
-                    fontSize: size * 0.24,
+                    fontSize: size * 0.30,
                     fontWeight: FontWeight.w800,
                     color: AppTheme.accentCyan,
-                    fontFamily: 'monospace',
                     height: 1,
                   ),
                 ),

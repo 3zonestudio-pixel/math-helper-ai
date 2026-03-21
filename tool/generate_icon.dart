@@ -210,24 +210,27 @@ void _drawX2Symbol(Uint8List pixels, int size) {
   final cx = size ~/ 2;
   final cy = size ~/ 2;
 
-  // "x" — shifted left to make room for superscript ²
-  final xCx = cx - 25;
+  // "x" — smaller, shifted left, italic slant for cute look
+  final xCx = cx - 40;
   final xCy = cy + 15;
-  const xHalf = 145; // size of x
-  const xThick = 28.0; // bold stroke
+  const xHalf = 105; // smaller x
+  const xThick = 24.0; // slightly thinner stroke
+  const slant = 18.0; // italic slant offset (top shifts right, bottom shifts left)
 
-  // Two diagonal strokes of x:  \ and /
-  final s1ax = (xCx - xHalf).toDouble(), s1ay = (xCy - xHalf).toDouble();
-  final s1bx = (xCx + xHalf).toDouble(), s1by = (xCy + xHalf).toDouble();
-  final s2ax = (xCx + xHalf).toDouble(), s2ay = (xCy - xHalf).toDouble();
-  final s2bx = (xCx - xHalf).toDouble(), s2by = (xCy + xHalf).toDouble();
+  // Two diagonal strokes of x with italic slant:
+  // Stroke 1: top-left to bottom-right, skewed
+  final s1ax = (xCx - xHalf + slant).toDouble(), s1ay = (xCy - xHalf).toDouble();
+  final s1bx = (xCx + xHalf - slant).toDouble(), s1by = (xCy + xHalf).toDouble();
+  // Stroke 2: top-right to bottom-left, skewed
+  final s2ax = (xCx + xHalf + slant).toDouble(), s2ay = (xCy - xHalf).toDouble();
+  final s2bx = (xCx - xHalf - slant).toDouble(), s2by = (xCy + xHalf).toDouble();
 
-  // "²" — smaller superscript (5-segment digital style)
-  final twoX = xCx + xHalf + 30;
-  final twoY = xCy - xHalf - 20;
-  const twoW = 58;
-  const twoH = 75;
-  const twoT = 13;
+  // "²" — BIGGER superscript (5-segment digital style)
+  final twoX = (xCx + xHalf + slant + 25).toInt();
+  final twoY = (xCy - xHalf - 55).toInt();
+  const twoW = 85;
+  const twoH = 110;
+  const twoT = 18;
 
   final twoRects = <List<int>>[
     [twoX, twoY, twoX + twoW, twoY + twoT],                            // top bar
