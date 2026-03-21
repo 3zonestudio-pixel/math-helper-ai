@@ -28,31 +28,16 @@ class LogoWidget extends StatelessWidget {
         ],
       ),
       child: CustomPaint(
-        painter: _LogoPainter(),
-        child: Center(
-          child: RichText(
-            text: TextSpan(
-              children: [
-                TextSpan(
-                  text: 'x',
-                  style: TextStyle(
-                    fontSize: size * 0.32,
-                    fontWeight: FontWeight.w700,
-                    fontStyle: FontStyle.italic,
-                    color: Colors.white,
-                    height: 1,
-                  ),
-                ),
-                TextSpan(
-                  text: '\u00B2',
-                  style: TextStyle(
-                    fontSize: size * 0.30,
-                    fontWeight: FontWeight.w800,
-                    color: AppTheme.accentCyan,
-                    height: 1,
-                  ),
-                ),
-              ],
+        painter: _LogoPainter(logoSize: size),
+        child: Align(
+          alignment: const Alignment(0.38, -0.18),
+          child: Text(
+            '\u00B2',
+            style: TextStyle(
+              fontSize: size * 0.32,
+              fontWeight: FontWeight.w800,
+              color: AppTheme.accentCyan,
+              height: 1,
             ),
           ),
         ),
@@ -62,8 +47,62 @@ class LogoWidget extends StatelessWidget {
 }
 
 class _LogoPainter extends CustomPainter {
+  final double logoSize;
+  _LogoPainter({required this.logoSize});
+
   @override
   void paint(Canvas canvas, Size size) {
+    _drawScanCorners(canvas, size);
+    _drawCurvedX(canvas, size);
+  }
+
+  void _drawCurvedX(Canvas canvas, Size size) {
+    final cx = size.width * 0.45;
+    final cy = size.height * 0.52;
+    final arm = size.width * 0.18;
+    final strokeW = size.width * 0.055;
+
+    // Glow paint
+    final glowPaint = Paint()
+      ..color = Colors.white.withAlpha(30)
+      ..strokeWidth = strokeW + 6
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+
+    // Main stroke paint
+    final xPaint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = strokeW
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    // Stroke 1: top-left → bottom-right with gentle S-curve
+    final p1 = Path()
+      ..moveTo(cx - arm, cy - arm)
+      ..cubicTo(
+        cx - arm * 0.15, cy - arm * 0.4,
+        cx + arm * 0.15, cy + arm * 0.4,
+        cx + arm, cy + arm,
+      );
+
+    // Stroke 2: top-right → bottom-left with gentle S-curve
+    final p2 = Path()
+      ..moveTo(cx + arm, cy - arm)
+      ..cubicTo(
+        cx + arm * 0.15, cy - arm * 0.4,
+        cx - arm * 0.15, cy + arm * 0.4,
+        cx - arm, cy + arm,
+      );
+
+    // Draw glow then strokes
+    canvas.drawPath(p1, glowPaint);
+    canvas.drawPath(p2, glowPaint);
+    canvas.drawPath(p1, xPaint);
+    canvas.drawPath(p2, xPaint);
+  }
+
+  void _drawScanCorners(Canvas canvas, Size size) {
     final inset = size.width * 0.12;
     final cornerLength = size.width * 0.22;
     final cornerRadius = size.width * 0.06;

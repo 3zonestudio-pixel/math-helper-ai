@@ -210,24 +210,33 @@ void _drawX2Symbol(Uint8List pixels, int size) {
   final cx = size ~/ 2;
   final cy = size ~/ 2;
 
-  // "x" — smaller, shifted left, italic slant for cute look
+  // "x" — curved strokes with rounded ends for a cute/stylish look
   final xCx = cx - 40;
   final xCy = cy + 15;
-  const xHalf = 105; // smaller x
-  const xThick = 24.0; // slightly thinner stroke
-  const slant = 18.0; // italic slant offset (top shifts right, bottom shifts left)
+  const xHalf = 105;
+  const xThick = 24.0;
 
-  // Two diagonal strokes of x with italic slant:
-  // Stroke 1: top-left to bottom-right, skewed
-  final s1ax = (xCx - xHalf + slant).toDouble(), s1ay = (xCy - xHalf).toDouble();
-  final s1bx = (xCx + xHalf - slant).toDouble(), s1by = (xCy + xHalf).toDouble();
-  // Stroke 2: top-right to bottom-left, skewed
-  final s2ax = (xCx + xHalf + slant).toDouble(), s2ay = (xCy - xHalf).toDouble();
-  final s2bx = (xCx - xHalf - slant).toDouble(), s2by = (xCy + xHalf).toDouble();
+  // Generate curved x strokes using cubic bezier (S-curve)
+  // Stroke 1: top-left → bottom-right
+  final s1Points = _cubicBezierPoints(
+    xCx - xHalf + 0.0, xCy - xHalf + 0.0,       // start
+    xCx - xHalf * 0.15, xCy - xHalf * 0.4,       // control 1
+    xCx + xHalf * 0.15, xCy + xHalf * 0.4,       // control 2
+    xCx + xHalf + 0.0, xCy + xHalf + 0.0,         // end
+    80,
+  );
+  // Stroke 2: top-right → bottom-left
+  final s2Points = _cubicBezierPoints(
+    xCx + xHalf + 0.0, xCy - xHalf + 0.0,
+    xCx + xHalf * 0.15, xCy - xHalf * 0.4,
+    xCx - xHalf * 0.15, xCy + xHalf * 0.4,
+    xCx - xHalf + 0.0, xCy + xHalf + 0.0,
+    80,
+  );
 
   // "²" — BIGGER superscript (5-segment digital style)
-  final twoX = (xCx + xHalf + slant + 25).toInt();
-  final twoY = (xCy - xHalf - 55).toInt();
+  final twoX = xCx + xHalf + 25;
+  final twoY = xCy - xHalf - 55;
   const twoW = 85;
   const twoH = 110;
   const twoT = 18;
@@ -249,9 +258,27 @@ void _drawX2Symbol(Uint8List pixels, int size) {
 
   for (int y = ryMin; y <= ryMax; y++) {
     for (int x = rxMin; x <= rxMax; x++) {
-      // Distance to x strokes
-      final d1 = _distToThickSeg(x.toDouble(), y.toDouble(), s1ax, s1ay, s1bx, s1by, xThick / 2);
-      final d2 = _distToThickSeg(x.toDouble(), y.toDouble(), s2ax, s2ay, s2bx, s2by, xThick / 2);
+      // Distance to curved x strokes (minimum distance to any segment of each curve)
+      double d1 = double.infinity;
+      for (int i = 0; i < s1Points.length - 1; i++) {
+        final d = _distToThickSeg(
+          x.toDouble(), y.toDouble(),
+          s1Points[i][0], s1Points[i][1],
+          s1Points[i + 1][0], s1Points[i + 1][1],
+          xThick / 2,
+        );
+        if (d < d1) d1 = d;
+      }
+      double d2 = double.infinity;
+      for (int i = 0; i < s2Points.length - 1; i++) {
+        final d = _distToThickSeg(
+          x.toDouble(), y.toDouble(),
+          s2Points[i][0], s2Points[i][1],
+          s2Points[i + 1][0], s2Points[i + 1][1],
+          xThick / 2,
+        );
+        if (d < d2) d2 = d;
+      }
       final xDist = math.min(d1, d2);
 
       // Distance to ² rects
@@ -280,6 +307,23 @@ void _drawX2Symbol(Uint8List pixels, int size) {
       }
     }
   }
+}
+
+/// Generate points along a cubic bezier curve
+List<List<double>> _cubicBezierPoints(
+  double x0, double y0, double x1, double y1,
+  double x2, double y2, double x3, double y3,
+  int segments,
+) {
+  final points = <List<double>>[];
+  for (int i = 0; i <= segments; i++) {
+    final t = i / segments;
+    final u = 1.0 - t;
+    final px = u * u * u * x0 + 3 * u * u * t * x1 + 3 * u * t * t * x2 + t * t * t * x3;
+    final py = u * u * u * y0 + 3 * u * u * t * y1 + 3 * u * t * t * y2 + t * t * t * y3;
+    points.add([px, py]);
+  }
+  return points;
 }
 
 /// Distance from point to a thick line segment (stroke with half-width).
