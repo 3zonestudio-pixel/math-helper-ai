@@ -14,19 +14,47 @@ class OcrService {
 
   Future<String> recognizeText(String imagePath) async {
     try {
-      // === MULTI-PASS OCR: try both original and preprocessed, keep best ===
-      final originalResult = await _recognizeSingle(imagePath);
+      // Validate file exists and size is reasonable (max 20MB)
+      final file = File(imagePath);
+      if (!file.existsSync()) return '';
+      final fileSize = await file.length();
+      if (fileSize > 20 * 1024 * 1024) return '';
 
-      final preprocessedPath = await _preprocessImage(imagePath);
-      String preprocessedResult = '';
-      if (preprocessedPath != null) {
-        preprocessedResult = await _recognizeSingle(preprocessedPath);
-        try { File(preprocessedPath).deleteSync(); } catch (_) {}
+      // === MULTI-PASS OCR: try original, enhanced, and binarized ===
+      final results = <String>[];
+
+      // Pass 1: Original image
+      final originalResult = await _recognizeSingle(imagePath);
+      if (originalResult.isNotEmpty) results.add(originalResult);
+
+      // Pass 2: Enhanced (grayscale + sharpen + contrast)
+      final enhancedPath = await _preprocessImage(imagePath, binarize: false);
+      if (enhancedPath != null) {
+        final enhancedResult = await _recognizeSingle(enhancedPath);
+        if (enhancedResult.isNotEmpty) results.add(enhancedResult);
+        try { File(enhancedPath).deleteSync(); } catch (_) {}
       }
 
-      // Pick the result with more math-like content
-      final best = _pickBestResult(originalResult, preprocessedResult);
-      if (best.isEmpty) return '';
+      // Pass 3: Binarized (for low-contrast / faded math)
+      final binarizedPath = await _preprocessImage(imagePath, binarize: true);
+      if (binarizedPath != null) {
+        final binarizedResult = await _recognizeSingle(binarizedPath);
+        if (binarizedResult.isNotEmpty) results.add(binarizedResult);
+        try { File(binarizedPath).deleteSync(); } catch (_) {}
+      }
+
+      if (results.isEmpty) return '';
+
+      // Pick the result with the highest math score
+      String best = results.first;
+      int bestScore = _mathScore(best);
+      for (int i = 1; i < results.length; i++) {
+        final score = _mathScore(results[i]);
+        if (score > bestScore) {
+          bestScore = score;
+          best = results[i];
+        }
+      }
 
       return _cleanMathText(best);
     } catch (e) {
@@ -46,19 +74,11 @@ class OcrService {
     }
   }
 
-  /// Pick whichever OCR result looks more like a math expression
-  String _pickBestResult(String a, String b) {
-    if (a.isEmpty) return b;
-    if (b.isEmpty) return a;
-    final scoreA = _mathScore(a);
-    final scoreB = _mathScore(b);
-    return scoreB > scoreA ? b : a;
-  }
-
   /// Score how "math-like" text is (higher = more math symbols/patterns)
   int _mathScore(String text) {
+    if (text.isEmpty) return 0;
     int score = 0;
-    const mathChars = '0123456789+-×÷*/=()[]{}xyzπ∫√∂∞²³⁴⁵⁶⁷⁸⁹≤≥≠≈αβγδθσΣΔΩ';
+    const mathChars = '0123456789+-×÷*/=()[]{}xyzπ∫√∂∞²³⁴⁵⁶⁷⁸⁹≤≥≠≈αβγδθσΣΔΩ°±';
     for (final ch in text.split('')) {
       if (mathChars.contains(ch)) score += 2;
     }
@@ -67,6 +87,18 @@ class OcrService {
     if (RegExp(r'\d\s*[+\-×÷*/]\s*\d').hasMatch(text)) score += 5;
     if (text.contains('=')) score += 5;
     if (RegExp(r'(?:sin|cos|tan|log|ln|lim|∫|√|d/d)', caseSensitive: false).hasMatch(text)) score += 15;
+    // Bonus for fraction patterns: a/b
+    if (RegExp(r'\d+\s*/\s*\d+').hasMatch(text)) score += 8;
+    // Bonus for equation pattern: expression = expression
+    if (RegExp(r'.+\s*=\s*.+').hasMatch(text)) score += 10;
+    // Bonus for parenthesized expressions
+    final parenCount = RegExp(r'[()]').allMatches(text).length;
+    score += parenCount * 2;
+    // Bonus for variable-operator-variable pattern
+    if (RegExp(r'[a-zA-Z]\s*[+\-×÷*/^]\s*[a-zA-Z0-9]').hasMatch(text)) score += 8;
+    // Penalize excessive non-math text (long English sentences)
+    final wordCount = RegExp(r'[a-zA-Z]{4,}').allMatches(text).length;
+    score -= wordCount * 3;
     return score;
   }
 
@@ -74,13 +106,22 @@ class OcrService {
     return recognizeText(file.path);
   }
 
-  /// Preprocess image: grayscale + contrast + sharpen + binarize
-  Future<String?> _preprocessImage(String imagePath) async {
+  /// Preprocess image: grayscale + contrast + sharpen + optional binarize
+  Future<String?> _preprocessImage(String imagePath, {bool binarize = false}) async {
     try {
       final file = File(imagePath);
       final bytes = await file.readAsBytes();
       var image = img.decodeImage(Uint8List.fromList(bytes));
       if (image == null) return null;
+
+      // Downscale very large images to prevent memory issues
+      if (image.width > 3000 || image.height > 3000) {
+        final scale = 3000 / math.max(image.width, image.height);
+        image = img.copyResize(image,
+            width: (image.width * scale).round(),
+            height: (image.height * scale).round(),
+            interpolation: img.Interpolation.linear);
+      }
 
       // Convert to grayscale
       image = img.grayscale(image);
@@ -92,15 +133,31 @@ class OcrService {
         0, -1, 0,
       ]);
 
-      // Adjust contrast (+60%) for clearer symbol edges
-      image = img.adjustColor(image, contrast: 1.6);
+      // Adjust contrast for clearer symbol edges
+      image = img.adjustColor(image, contrast: binarize ? 2.5 : 1.6);
 
       // Normalize brightness
       image = img.normalize(image, min: 0, max: 255);
 
+      if (binarize) {
+        // Simple global threshold: pixel > 128 → white, else → black
+        for (int y = 0; y < image.height; y++) {
+          for (int x = 0; x < image.width; x++) {
+            final pixel = image.getPixel(x, y);
+            final lum = img.getLuminance(pixel);
+            if (lum > 128) {
+              image.setPixelRgb(x, y, 255, 255, 255);
+            } else {
+              image.setPixelRgb(x, y, 0, 0, 0);
+            }
+          }
+        }
+      }
+
       // Save preprocessed image to temp path
       final dir = file.parent.path;
-      final outPath = '$dir/ocr_preprocessed.png';
+      final suffix = binarize ? 'binarized' : 'enhanced';
+      final outPath = '$dir/ocr_$suffix.png';
       final outFile = File(outPath);
       await outFile.writeAsBytes(img.encodePng(image));
       return outPath;
@@ -125,25 +182,32 @@ class OcrService {
         // Compute baseline: the median bottom-Y of all elements in the line
         final bottoms = line.elements.map((e) => e.boundingBox.bottom).toList()..sort();
         final medianBottom = bottoms[bottoms.length ~/ 2];
+        // Compute median top for subscript detection
+        final tops = line.elements.map((e) => e.boundingBox.top).toList()..sort();
+        final medianTop = tops[tops.length ~/ 2];
         // Average element height for thresholding
         final avgHeight = line.elements.map((e) => e.boundingBox.height).reduce((a, b) => a + b) / line.elements.length;
 
         for (int i = 0; i < line.elements.length; i++) {
           final el = line.elements[i];
           final elBottom = el.boundingBox.bottom;
+          final elTop = el.boundingBox.top;
           final elHeight = el.boundingBox.height;
           final text = el.text;
 
-          // Superscript detection: element is significantly above the baseline
-          // and smaller than average height
-          final isSuperscript = (medianBottom - elBottom) > avgHeight * 0.25 &&
-              elHeight < avgHeight * 0.75 &&
-              i > 0;
+          // Superscript detection: element's bottom is clearly above the median bottom
+          // and the element is notably smaller than average
+          final isSmaller = elHeight < avgHeight * 0.80;
+          final isSuperscript = i > 0 &&
+              isSmaller &&
+              (medianBottom - elBottom) > avgHeight * 0.20;
 
-          // Subscript detection: element is below the baseline
-          final isSubscript = (elBottom - medianBottom) > avgHeight * 0.25 &&
-              elHeight < avgHeight * 0.75 &&
-              i > 0;
+          // Subscript detection: element's top is clearly below the median top
+          // and the element is notably smaller
+          final isSubscript = i > 0 &&
+              isSmaller &&
+              (elTop - medianTop) > avgHeight * 0.20 &&
+              !isSuperscript;
 
           if (isSuperscript) {
             // Convert to superscript notation
@@ -178,7 +242,12 @@ class OcrService {
     const superscripts = {
       '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴',
       '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹',
-      'n': 'ⁿ', 'x': 'ˣ', '+': '⁺', '-': '⁻',
+      'n': 'ⁿ', 'x': 'ˣ', 'y': 'ʸ', 'a': 'ᵃ', 'b': 'ᵇ',
+      'c': 'ᶜ', 'd': 'ᵈ', 'e': 'ᵉ', 'f': 'ᶠ', 'g': 'ᵍ',
+      'h': 'ʰ', 'i': 'ⁱ', 'j': 'ʲ', 'k': 'ᵏ', 'l': 'ˡ',
+      'm': 'ᵐ', 'o': 'ᵒ', 'p': 'ᵖ', 'r': 'ʳ', 's': 'ˢ',
+      't': 'ᵗ', 'u': 'ᵘ', 'v': 'ᵛ', 'w': 'ʷ',
+      '+': '⁺', '-': '⁻', '(': '⁽', ')': '⁾',
     };
     final buf = StringBuffer();
     for (final ch in text.split('')) {
@@ -495,12 +564,12 @@ class OcrService {
 
     // f'(x) — prime notation: various quote chars → '
     cleaned = cleaned.replaceAllMapped(
-      RegExp(r'([a-zA-Z])\s*[`´''ʼ]\s*(\()'),
+      RegExp(r"""([a-zA-Z])\s*[`\u00B4\u2018\u2019\u02BC]\s*(\()"""),
       (m) => "${m.group(1)}'${m.group(2)}",
     );
     // f''(x) — double prime
     cleaned = cleaned.replaceAllMapped(
-      RegExp(r'([a-zA-Z])\s*[`´''ʼ]{2}\s*(\()'),
+      RegExp(r"""([a-zA-Z])\s*[`\u00B4\u2018\u2019\u02BC]{2}\s*(\()"""),
       (m) => "${m.group(1)}''${m.group(2)}",
     );
 
@@ -532,6 +601,57 @@ class OcrService {
     cleaned = cleaned.replaceAll(RegExp(r'\barc\s*sin\b', caseSensitive: false), 'arcsin');
     cleaned = cleaned.replaceAll(RegExp(r'\barc\s*cos\b', caseSensitive: false), 'arccos');
     cleaned = cleaned.replaceAll(RegExp(r'\barc\s*tan\b', caseSensitive: false), 'arctan');
+
+    // ═══════════════════════════════════════════════════
+    // 5b. ADDITIONAL MATH PATTERN FIXES
+    // ═══════════════════════════════════════════════════
+
+    // Fraction patterns: "1 / 2" → keep, but fix "l/2" → "1/2"
+    cleaned = cleaned.replaceAllMapped(
+      RegExp(r'(?<![a-zA-Z])l(?=/\s*\d)'),
+      (m) => '1',
+    );
+
+    // "x times y" or "x X y" between numbers = multiplication
+    cleaned = cleaned.replaceAllMapped(
+      RegExp(r'(\d)\s*[xX]\s*(\d)'),
+      (m) => '${m.group(1)} × ${m.group(2)}',
+    );
+
+    // Fix "+" misread as "t" between digits: "3t5" is unlikely, more likely "3+5"
+    cleaned = cleaned.replaceAllMapped(
+      RegExp(r'(\d)\s*t\s*(\d)(?!\d*[a-zA-Z])'),
+      (m) => '${m.group(1)} + ${m.group(2)}',
+    );
+
+    // "n!" factorial — ensure 'n' stays, "nl" → "n!"
+    cleaned = cleaned.replaceAllMapped(
+      RegExp(r'(\d+)\s*[l|I](?=\s*[+\-×÷*/=)\s]|$)'),
+      (m) => '${m.group(1)}!',
+    );
+
+    // Percentage: "%" sometimes read as "96" or "yo" — keep as is, AI handles
+    // But fix common "°/o" → "%"
+    cleaned = cleaned.replaceAll('°/o', '%');
+    cleaned = cleaned.replaceAll('°/0', '%');
+
+    // Fix "log base" notation: "log2" → "log₂", "log10" → "log₁₀"
+    cleaned = cleaned.replaceAllMapped(
+      RegExp(r'\blog(\d{1,2})(?=\s*\()'),
+      (m) {
+        final base = m.group(1)!;
+        final subDigits = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉'};
+        final sub = base.split('').map((d) => subDigits[d] ?? d).join();
+        return 'log$sub';
+      },
+    );
+
+    // Fix absolute value: "|x|" sometimes OCR reads pipes as "l" or "I"
+    // "lxl" in math context → |x|
+    cleaned = cleaned.replaceAllMapped(
+      RegExp(r'(?<![a-zA-Z])l([a-zA-Z0-9+\-×÷*/^²³]+)l(?![a-zA-Z])'),
+      (m) => '|${m.group(1)}|',
+    );
 
     // ═══════════════════════════════════════════════════
     // 6. SPACING NORMALIZATION

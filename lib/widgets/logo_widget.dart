@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:math' as math;
 import '../theme.dart';
 
 class LogoWidget extends StatelessWidget {

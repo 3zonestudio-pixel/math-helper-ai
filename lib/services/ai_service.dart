@@ -174,7 +174,15 @@ class AiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final content = data['choices'][0]['message']['content'] as String;
+        final choices = data['choices'];
+        if (choices == null || choices is! List || choices.isEmpty) {
+          throw Exception('Invalid API response: missing choices');
+        }
+        final message = choices[0]['message'];
+        if (message == null || message['content'] == null) {
+          throw Exception('Invalid API response: missing content');
+        }
+        final content = message['content'] as String;
         final result = _parseAiResponse(content, problem, language, difficulty, category);
         _addToCache(key, result);
         return result;

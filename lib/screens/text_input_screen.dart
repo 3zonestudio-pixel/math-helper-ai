@@ -204,35 +204,6 @@ class _TextInputScreenState extends State<TextInputScreen> {
     );
   }
 
-  Widget _buildCategoryChip(String label, String value, bool isDark) {
-    final isSelected = _selectedCategory == value;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: ChoiceChip(
-        label: Text(label),
-        selected: isSelected,
-        selectedColor: AppTheme.accentPurple,
-        backgroundColor: isDark ? AppTheme.cardDark : Colors.grey[100],
-        labelStyle: TextStyle(
-          color: isSelected
-              ? Colors.white
-              : (isDark ? AppTheme.textLight : AppTheme.textDark),
-          fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-          fontSize: 13,
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        side: BorderSide(
-          color: isSelected
-              ? AppTheme.accentPurple
-              : (isDark ? Colors.white.withAlpha(13) : Colors.black.withAlpha(10)),
-        ),
-        onSelected: (selected) {
-          if (selected) setState(() => _selectedCategory = value);
-        },
-      ),
-    );
-  }
-
   Widget _buildMathKeyboard(bool isDark) {
     final symbols = [
       'x', 'y', '²', '³', '^', '√', 'π',

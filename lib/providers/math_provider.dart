@@ -72,8 +72,10 @@ class MathProvider extends ChangeNotifier {
       _history.insert(0, result);
       notifyListeners();
 
-      // Save to DB in background
-      _dbService.insertProblem(result).catchError((_) {});
+      // Save to DB — await to prevent data loss
+      try {
+        await _dbService.insertProblem(result);
+      } catch (_) {}
       return result;
     } catch (e) {
       _isLoading = false;

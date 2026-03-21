@@ -4,12 +4,25 @@ import '../models/math_problem.dart';
 class DatabaseService {
   static const String _boxName = 'problems';
   static bool _initialized = false;
+  static bool _initializing = false;
 
   static Future<void> init() async {
     if (_initialized) return;
-    await Hive.initFlutter();
-    await Hive.openBox<Map>(_boxName);
-    _initialized = true;
+    if (_initializing) {
+      // Wait for the other init call to finish
+      while (_initializing) {
+        await Future.delayed(const Duration(milliseconds: 50));
+      }
+      return;
+    }
+    _initializing = true;
+    try {
+      await Hive.initFlutter();
+      await Hive.openBox<Map>(_boxName);
+      _initialized = true;
+    } finally {
+      _initializing = false;
+    }
   }
 
   Box<Map> get _box => Hive.box<Map>(_boxName);
@@ -22,10 +35,15 @@ class DatabaseService {
 
   Future<List<MathProblem>> getHistory() async {
     final items = _box.values.toList();
-    final problems = items.map((m) {
-      final map = Map<String, dynamic>.from(m);
-      return MathProblem.fromMap(map);
-    }).toList();
+    final problems = <MathProblem>[];
+    for (final m in items) {
+      try {
+        final map = Map<String, dynamic>.from(m);
+        problems.add(MathProblem.fromMap(map));
+      } catch (_) {
+        // Skip corrupted entries
+      }
+    }
     problems.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return problems;
   }

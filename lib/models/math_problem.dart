@@ -42,18 +42,20 @@ class MathProblem {
 
   factory MathProblem.fromMap(Map<String, dynamic> map) {
     List<SolutionStep> parsedSteps = [];
-    if (map['steps'] != null) {
+    if (map['steps'] != null && map['steps'] is String) {
       try {
         final stepsStr = map['steps'] as String;
-        final stepParts = stepsStr.split('|||');
-        for (int i = 0; i < stepParts.length; i++) {
-          final parts = stepParts[i].split('::');
-          if (parts.length >= 2) {
-            parsedSteps.add(SolutionStep(
-              stepNumber: i + 1,
-              title: parts[0].trim(),
-              description: parts[1].trim(),
-            ));
+        if (stepsStr.isNotEmpty) {
+          final stepParts = stepsStr.split('|||');
+          for (int i = 0; i < stepParts.length; i++) {
+            final parts = stepParts[i].split('::');
+            if (parts.length >= 2) {
+              parsedSteps.add(SolutionStep(
+                stepNumber: i + 1,
+                title: parts[0].trim(),
+                description: parts.sublist(1).join('::').trim(),
+              ));
+            }
           }
         }
       } catch (_) {
@@ -62,14 +64,14 @@ class MathProblem {
     }
 
     return MathProblem(
-      id: map['id'] as String,
-      problem: map['problem'] as String,
-      solution: map['solution'] as String,
+      id: (map['id'] as String?) ?? '',
+      problem: (map['problem'] as String?) ?? '',
+      solution: (map['solution'] as String?) ?? '',
       steps: parsedSteps,
-      category: map['category'] as String? ?? 'general',
-      difficulty: map['difficulty'] as String? ?? 'intermediate',
-      language: map['language'] as String? ?? 'en',
-      createdAt: DateTime.parse(map['createdAt'] as String),
+      category: (map['category'] as String?) ?? 'general',
+      difficulty: (map['difficulty'] as String?) ?? 'intermediate',
+      language: (map['language'] as String?) ?? 'en',
+      createdAt: DateTime.tryParse(map['createdAt']?.toString() ?? '') ?? DateTime.now(),
       isFavorite: (map['isFavorite'] as int?) == 1,
     );
   }
