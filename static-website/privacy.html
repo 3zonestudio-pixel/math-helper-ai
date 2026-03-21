@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Privacy Policy - Math Helper AI</title>
+  <meta name="description" content="Privacy Policy for Math Helper AI: how the app processes camera/OCR input and optional AI API usage." />
+  <link rel="icon" type="image/png" href="./app_icon.png" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="container policy">
+    <div class="topbar">
+      <div class="brand">
+        <img class="logo" src="./app_icon.png" alt="Math Helper AI" />
+        <div>Math Helper AI</div>
+      </div>
+      <div class="nav" aria-label="Primary navigation">
+        <a class="pill" href="./index.html">Home</a>
+        <a class="pill" href="./terms.html">Terms</a>
+      </div>
+    </div>
+
+    <div class="hero" style="padding-top:0">
+      <h1 style="margin-bottom:8px">Privacy Policy</h1>
+      <p class="small" style="margin:0">
+        This is a plain-language privacy policy. It is not legal advice.
+      </p>
+      <div class="metaRow">
+        <div>Last updated: 2025-06-01</div>
+        <div>Applies to: the app and this website</div>
+      </div>
+    </div>
+
+    <div class="policyLayout">
+      <aside class="toc" aria-label="Table of contents">
+        <h3>On this page</h3>
+        <ul>
+          <li><a href="#overview">1. Overview</a></li>
+          <li><a href="#data-safety">2. Google Play Data Safety</a></li>
+          <li><a href="#data-we-process">3. Data we process</a></li>
+          <li><a href="#permissions">4. App permissions</a></li>
+          <li><a href="#camera-ocr">5. Camera + OCR</a></li>
+          <li><a href="#local-storage">6. Local storage (history)</a></li>
+          <li><a href="#external-ai">7. Optional external AI</a></li>
+          <li><a href="#third-party">8. Third-party services</a></li>
+          <li><a href="#sharing">9. How we share data</a></li>
+          <li><a href="#retention">10. Data retention & deletion</a></li>
+          <li><a href="#cookies">11. Cookies & website analytics</a></li>
+          <li><a href="#security">12. Security</a></li>
+          <li><a href="#international">13. International data transfers</a></li>
+          <li><a href="#rights">14. Your choices & rights</a></li>
+          <li><a href="#children">15. Children's privacy</a></li>
+          <li><a href="#contact">16. Contact</a></li>
+          <li><a href="#changes">17. Changes</a></li>
+        </ul>
+      </aside>
+
+      <main class="policyMain">
+        <div id="overview" class="sectionCard">
+          <h3>1) Overview</h3>
+          <p>
+            Math Helper AI is a mobile application that helps you solve math problems using camera-based input (OCR),
+            text input, and step-by-step explanations. The app includes five built-in local solvers (arithmetic,
+            linear equations, quadratic equations, basic integrals, and derivatives) and optional AI-powered solving
+            for more advanced problems.
+          </p>
+          <p>
+            Your solved problems can be saved to local history on your device using an on-device database (Hive).
+            No data is sent to any server unless you explicitly configure an external AI API.
+          </p>
+          <p>
+            This policy explains what data the app and this static website may process, and how you can control it.
+          </p>
+        </div>
+
+        <div id="data-safety" class="sectionCard">
+          <h3>2) Google Play Data Safety Declaration</h3>
+          <p>
+            In accordance with Google Play's Data Safety requirements, the following
+            summarizes how Math Helper AI handles user data:
+          </p>
+          <ul>
+            <li><strong>Data collected:</strong> No personal or sensitive user data is collected.</li>
+            <li><strong>Data shared:</strong> No data is shared with third parties, except when you
+              explicitly configure an external AI API (in which case only math problem text is sent).</li>
+            <li><strong>Data encrypted in transit:</strong> Yes. If external AI is used, all communication
+              occurs over HTTPS.</li>
+            <li><strong>Data deletion:</strong> Users can delete all app data by clearing history within
+              the app or by uninstalling the app. All data is stored locally on-device.</li>
+            <li><strong>No account required:</strong> The app does not require user registration or sign-in.</li>
+            <li><strong>No advertising:</strong> The app does not contain ads or advertising SDKs.</li>
+            <li><strong>No analytics:</strong> The app does not include analytics SDKs, crash reporting tools,
+              or any form of usage tracking.</li>
+            <li><strong>No in-app purchases:</strong> The app is free with no monetization.</li>
+          </ul>
+        </div>
+
+        <div id="data-we-process" class="sectionCard">
+          <h3>3) Data we process</h3>
+          <p>
+            Math Helper AI is designed to minimize data collection. Depending on how you use the app,
+            the following categories of information may be processed <strong>locally on your device</strong>:
+          </p>
+          <ul>
+            <li><strong>Math input:</strong> Problems you type or capture via camera (OCR).</li>
+            <li><strong>OCR output:</strong> Recognized text extracted from your camera images.</li>
+            <li><strong>Solutions:</strong> Step-by-step solutions generated by local solvers or AI.</li>
+            <li><strong>History:</strong> Saved problems and solutions stored in local database.</li>
+            <li><strong>Favorites:</strong> Problems you mark as favorites for quick access.</li>
+            <li><strong>Settings:</strong> Your preferences such as language, explanation language, and display options.</li>
+          </ul>
+          <p>
+            <strong>We do not collect:</strong> names, email addresses, phone numbers, location data,
+            device identifiers, IP addresses, advertising IDs, or any personal information.
+          </p>
+        </div>
+
+        <div id="permissions" class="sectionCard">
+          <h3>4) App permissions</h3>
+          <p>
+            Math Helper AI requests only the minimum permissions necessary to function:
+          </p>
+          <ul>
+            <li><strong>Camera (<code>android.permission.CAMERA</code>):</strong> Used solely to scan and
+              capture math problems for OCR recognition. Camera access is requested at runtime and can be
+              denied or revoked at any time. No images are stored or transmitted.</li>
+            <li><strong>Internet (<code>android.permission.INTERNET</code>):</strong> Required only when
+              the optional external AI feature is enabled by the user. If no API key is configured, no
+              network requests are made. The app functions fully offline with local solvers.</li>
+          </ul>
+          <p>
+            The app does not request access to: contacts, location, microphone, phone state,
+            storage (external), SMS, calendar, or any other sensitive permissions.
+          </p>
+        </div>
+
+        <div id="camera-ocr" class="sectionCard">
+          <h3>5) Camera + OCR</h3>
+          <p>
+            When you use the camera feature, the app uses on-device OCR (Optical Character Recognition) to
+            recognize math expressions from images you capture. The recognized text is then used to generate solutions.
+          </p>
+          <p>
+            <strong>Important:</strong> Camera images are processed in real-time and are <strong>not stored</strong>
+            on any server. The app does not upload your photos anywhere. OCR processing happens entirely within the
+            app on your device.
+          </p>
+          <p>
+            The app requests camera permission solely for the purpose of scanning math problems. No images are
+            saved to your device's gallery unless you explicitly do so yourself.
+          </p>
+        </div>
+
+        <div id="local-storage" class="sectionCard">
+          <h3>6) Local storage (history)</h3>
+          <p>
+            The app stores your solved problems locally on your device using <strong>Hive</strong>, a lightweight
+            on-device database. This data never leaves your device.
+          </p>
+          <p>Locally stored data includes:</p>
+          <ul>
+            <li>The original math problem (input text)</li>
+            <li>The generated solution and step-by-step explanation</li>
+            <li>Timestamp of when the problem was solved</li>
+            <li>Whether the problem is marked as a favorite</li>
+          </ul>
+          <p>
+            You have full control over your history: you can delete individual entries, clear all history,
+            or uninstall the app to remove all data.
+          </p>
+        </div>
+
+        <div id="external-ai" class="sectionCard">
+          <h3>7) Optional external AI</h3>
+          <p>
+            For problems that go beyond what local solvers can handle, the app can optionally send your math
+            input to an external AI API. This feature is <strong>entirely optional</strong> and
+            <strong>disabled by default</strong>.
+          </p>
+          <p>To use external AI, you must manually:</p>
+          <ul>
+            <li>Enter an API key in the app's Settings screen</li>
+            <li>Configure the API endpoint URL</li>
+          </ul>
+          <p>
+            When external AI is enabled, <strong>only the math problem text</strong> is sent to the configured
+            provider. No personal information, device identifiers, or metadata is included in the request.
+          </p>
+          <p>
+            If no API key is configured, the app will not contact any external server. Local solvers will
+            handle arithmetic, linear equations, quadratic equations, basic integrals, and derivatives entirely offline.
+          </p>
+          <p class="small">
+            The external AI provider's data handling practices are governed by their own privacy policy.
+            We recommend reviewing the provider's policy before configuring their API.
+          </p>
+        </div>
+
+        <div id="third-party" class="sectionCard">
+          <h3>8) Third-party services</h3>
+          <p>
+            Math Helper AI uses the following third-party services:
+          </p>
+          <ul>
+            <li>
+              <strong>Google ML Kit (Text Recognition):</strong> Used for on-device OCR to recognize
+              math text from camera images. All processing happens locally on your device. Google ML Kit
+              does not send your images to Google servers when using the on-device API.
+              <br /><span class="small">Policy: <a href="https://policies.google.com/privacy" rel="noopener noreferrer" target="_blank">Google Privacy Policy</a></span>
+            </li>
+            <li>
+              <strong>External AI API (optional, user-configured):</strong> Only active if you manually
+              enter an API key and endpoint. Only math problem text is transmitted. The provider's privacy
+              policy governs their data handling.
+            </li>
+          </ul>
+          <p>
+            The app does <strong>not</strong> use: Google Analytics, Firebase Analytics, Facebook SDK,
+            AdMob, crash reporting services, or any other tracking or advertising SDKs.
+          </p>
+        </div>
+
+        <div id="sharing" class="sectionCard">
+          <h3>9) How we share data</h3>
+          <p>
+            We do not sell your data. We may share data only in the following situation:
+          </p>
+          <ul>
+            <li>
+              <strong>External AI provider:</strong> if you enable external AI in Settings, the app sends your math input
+              to the provider you configured so they can generate responses.
+            </li>
+          </ul>
+          <p class="small">
+            The external provider’s retention, usage, and security practices are governed by their own policies.
+            Please review those policies to understand how they handle your data.
+          </p>
+        </div>
+
+        <div id="retention" class="sectionCard">
+          <h3>10) Data retention & deletion</h3>
+          <p>
+            Since all data is stored locally on your device, data retention is entirely under your control:
+          </p>
+          <ul>
+            <li><strong>History data:</strong> Retained on your device until you delete it manually
+              from within the app, or until you uninstall the app.</li>
+            <li><strong>Settings/preferences:</strong> Stored locally until app data is cleared or
+              the app is uninstalled.</li>
+            <li><strong>Camera images:</strong> Never stored. Processed in real-time for OCR and immediately discarded.</li>
+            <li><strong>AI cache:</strong> Temporary solution cache is stored in-memory during the app session
+              and is cleared when the app is closed.</li>
+          </ul>
+          <p>
+            <strong>How to delete your data:</strong>
+          </p>
+          <ul>
+            <li>Open the app and go to History to delete individual items or clear all history.</li>
+            <li>Go to your device Settings &gt; Apps &gt; Math Helper AI &gt; Clear Data to remove all app data.</li>
+            <li>Uninstall the app to permanently remove all associated data from your device.</li>
+          </ul>
+          <p>
+            No data is retained on any server. There is no server-side data to request deletion of.
+          </p>
+        </div>
+
+        <div id="cookies" class="sectionCard">
+          <h3>11) Cookies & website analytics</h3>
+          <p>
+            This Cloudflare-hosted static website is used only to display informational pages (Home, Privacy, Terms).
+            These pages do not include sign-in, user accounts, submission forms, or analytics scripts/tracking pixels.
+          </p>
+          <p>
+            However, Cloudflare may receive standard web server logs as part of operating the website.
+            Those logs are handled under Cloudflare’s policies.
+          </p>
+        </div>
+
+        <div id="security" class="sectionCard">
+          <h3>12) Security</h3>
+          <p>
+            We take the security of your data seriously. Since Math Helper AI stores all data locally on
+            your device, your data inherits the security protections of your device's operating system,
+            including device encryption and lock screen protection.
+          </p>
+          <p>Key security measures include:</p>
+          <ul>
+            <li><strong>No server storage:</strong> Your math problems and solutions are stored only on your device.</li>
+            <li><strong>No accounts:</strong> No usernames, passwords, or authentication tokens to protect.</li>
+            <li><strong>HTTPS:</strong> If external AI is configured, all API communication uses HTTPS encryption.</li>
+            <li><strong>Minimal data transmission:</strong> Only math problem text is sent when using external AI.</li>
+          </ul>
+          <p>
+            No method of electronic storage or transmission is 100% secure. We cannot guarantee absolute
+            security, but the app's privacy-first, local-only design significantly reduces risk.
+          </p>
+        </div>
+
+        <div id="international" class="sectionCard">
+          <h3>13) International data transfers</h3>
+          <p>
+            Math Helper AI does not transfer your data internationally. All app data is stored
+            locally on your device.
+          </p>
+          <p>
+            If you choose to configure an external AI API, your math problem text may be sent to
+            servers located in other countries depending on the provider you configure. This transfer
+            is initiated solely by your action of configuring the API, and is subject to the external
+            provider's privacy policy.
+          </p>
+        </div>
+
+        <div id="rights" class="sectionCard">
+          <h3>14) Your choices & rights</h3>
+          <p>You have full control over your data:</p>
+          <ul>
+            <li>
+              <strong>Delete history:</strong> Remove individual items or clear all history from the app.
+            </li>
+            <li>
+              <strong>Disable external AI:</strong> Remove your API key from Settings to stop all external communication.
+            </li>
+            <li>
+              <strong>Change language:</strong> Switch the explanation language at any time (13 languages supported).
+            </li>
+            <li>
+              <strong>Camera access:</strong> Revoke camera permission in your device's system settings at any time.
+            </li>
+            <li>
+              <strong>Uninstall:</strong> Removing the app deletes all locally stored data permanently.
+            </li>
+          </ul>
+          <p>
+            Since we do not collect personal data on any server, there is no server-side data to request
+            access to, correct, or delete.
+          </p>
+        </div>
+
+        <div id="children" class="sectionCard">
+          <h3>15) Children's privacy</h3>
+          <p>
+            Math Helper AI is designed as an educational tool suitable for users of all ages. The app does
+            not collect personal information, does not require account creation, and does not include
+            advertising or in-app purchases.
+          </p>
+          <p>
+            Since all data is stored locally and no personal information is collected or transmitted
+            (unless external AI is explicitly configured by the user), the app is considered safe
+            for use by children under parental guidance.
+          </p>
+          <p>
+            If a parent or guardian has concerns about their child's use of the app, they can contact
+            us using the information below.
+          </p>
+        </div>
+
+        <div id="contact" class="sectionCard">
+          <h3>16) Contact the developer</h3>
+          <p>
+            If you have any questions, concerns, or requests regarding this Privacy Policy or your data,
+            please contact the developer:
+          </p>
+          <ul>
+            <li><strong>Email:</strong> Available in the Google Play Store listing under "Developer contact"</li>
+            <li><strong>App Store page:</strong> Use the contact information on the app's Google Play listing</li>
+          </ul>
+          <p>
+            We will respond to privacy-related inquiries as promptly as possible.
+          </p>
+        </div>
+
+        <div id="changes" class="sectionCard">
+          <h3>17) Changes to this policy</h3>
+          <p>
+            We may update this policy from time to time. The “Last updated” date is shown at the top of this page.
+            Your continued use of the app after updates means you accept the updated policy.
+          </p>
+          <div class="policyLinks" style="margin-top:10px">
+            <a href="./index.html">Back to home</a>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <div class="footer">
+      <div class="footer-brand">
+        <img class="logo logo-sm" src="./app_icon.png" alt="Math Helper AI" />
+        <span>Math Helper AI</span>
+      </div>
+      <div class="footer-links">
+        <a href="./index.html">Home</a>
+        <a href="./terms.html">Terms of Service</a>
+      </div>
+      <div class="footer-copy">
+        Copyright &copy; <span id="year"></span> Math Helper AI. All rights reserved.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>
+
