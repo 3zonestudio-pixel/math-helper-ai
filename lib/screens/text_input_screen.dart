@@ -209,23 +209,28 @@ class _TextInputScreenState extends State<TextInputScreen> {
       'x', 'y', '²', '³', '^', '√', 'π',
       '∫', 'd/dx', '(', ')', '+', '-', '×',
       '÷', '=', '.', '0', '1', '2', '3',
-      '4', '5', '6', '7', '8', '9',
+      '4', '5', '6', '7', '8', '9', '⌫',
     ];
 
     return Wrap(
       spacing: 6,
       runSpacing: 6,
       children: symbols.map((symbol) {
+        final isDelete = symbol == '⌫';
         return SizedBox(
           width: symbol.length > 2 ? 56 : 40,
           height: 38,
           child: Material(
-            color: isDark
-                ? AppTheme.cardDark
-                : Colors.grey[100],
+            color: isDelete
+                ? (isDark ? const Color(0xFF3A1A1A) : const Color(0xFFFFE5E5))
+                : (isDark ? AppTheme.cardDark : Colors.grey[100]),
             borderRadius: BorderRadius.circular(10),
             child: InkWell(
               onTap: () => _insertSymbol(symbol),
+              onLongPress: isDelete ? () {
+                _controller.clear();
+                _focusNode.requestFocus();
+              } : null,
               borderRadius: BorderRadius.circular(10),
               child: Center(
                 child: Text(
@@ -233,7 +238,9 @@ class _TextInputScreenState extends State<TextInputScreen> {
                   style: TextStyle(
                     fontSize: symbol.length > 2 ? 12 : 16,
                     fontWeight: FontWeight.w600,
-                    color: isDark ? AppTheme.accentCyan : AppTheme.accentPurple,
+                    color: isDelete
+                        ? AppTheme.errorRed
+                        : (isDark ? AppTheme.accentCyan : AppTheme.accentPurple),
                   ),
                 ),
               ),
@@ -245,6 +252,18 @@ class _TextInputScreenState extends State<TextInputScreen> {
   }
 
   void _insertSymbol(String symbol) {
+    if (symbol == '⌫') {
+      final text = _controller.text;
+      if (text.isEmpty) return;
+      final selection = _controller.selection;
+      final cursorPos = selection.isValid ? selection.baseOffset : text.length;
+      if (cursorPos <= 0) return;
+      final newText = text.substring(0, cursorPos - 1) + text.substring(cursorPos);
+      _controller.text = newText;
+      _controller.selection = TextSelection.collapsed(offset: cursorPos - 1);
+      _focusNode.requestFocus();
+      return;
+    }
     final text = _controller.text;
     final selection = _controller.selection;
     final cursorPos = selection.isValid ? selection.baseOffset : text.length;

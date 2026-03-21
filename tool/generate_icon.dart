@@ -3,25 +3,28 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:math' as math;
 
-/// Generates app icon PNGs — dark bg + scan corners + white x².
+/// Generates app icon PNGs — dark bg + rounded scan corners + x² with glow.
 /// Run: dart run tool/generate_icon.dart
 void main() async {
   const size = 1024;
   final pixels = Uint8List(size * size * 4); // RGBA
 
-  // 1. Dark navy background
+  // 1. Dark navy background with subtle radial gradient
   _drawBackground(pixels, size);
 
-  // 2. White scan-style corner brackets with neon glow
+  // 2. Scan-style corner brackets (purple TL/BR, cyan TR/BL) with rounded ends + glow
   _drawScanCorners(pixels, size);
 
-  // 3. White x² centered — x big, ² small superscript, with neon glow
+  // 3. White "x" + cyan "²" centered with subtle glow
   _drawX2Symbol(pixels, size);
 
   // Encode as PNG
   final png = _encodePng(pixels, size, size);
 
   // Save
+  final dir = Directory('assets/icons');
+  if (!dir.existsSync()) dir.createSync(recursive: true);
+
   final iconFile = File('assets/icons/app_icon.png');
   await iconFile.writeAsBytes(png);
   print('Generated app_icon.png (${png.length} bytes)');
@@ -45,70 +48,160 @@ void _drawBackground(Uint8List pixels, int size) {
       final dy = y - cy;
       final t = (math.sqrt(dx * dx + dy * dy) / maxDist).clamp(0.0, 1.0);
 
-      // Center #10162C → Edge #080C18
-      pixels[idx + 0] = (16 - 8 * t).round().clamp(0, 255);
-      pixels[idx + 1] = (22 - 10 * t).round().clamp(0, 255);
-      pixels[idx + 2] = (44 - 20 * t).round().clamp(0, 255);
+      // Center #0E1428 → Edge #080B16
+      pixels[idx + 0] = (14 - 6 * t).round().clamp(0, 255);
+      pixels[idx + 1] = (20 - 9 * t).round().clamp(0, 255);
+      pixels[idx + 2] = (40 - 18 * t).round().clamp(0, 255);
       pixels[idx + 3] = 255;
     }
   }
 }
 
-// ─── Scan-style corner brackets ────────────────────────────────
+// ─── Scan-style corner brackets with rounded ends ──────────────
 
 void _drawScanCorners(Uint8List pixels, int size) {
-  const margin = 150;
-  const armLen = 175;
-  const thick = 18;
-  const cR = 255, cG = 255, cB = 255; // White corners
+  const margin = 160;
+  const armLen = 180;
+  const thick = 16;
+  const roundR = 20; // rounded corner radius
 
-  // 8 rectangles: 2 per corner (horizontal arm + vertical arm)
-  final rects = <List<int>>[
-    // Top-left
-    [margin, margin, margin + armLen, margin + thick],
-    [margin, margin, margin + thick, margin + armLen],
-    // Top-right
-    [size - margin - armLen, margin, size - margin, margin + thick],
-    [size - margin - thick, margin, size - margin, margin + armLen],
-    // Bottom-left
-    [margin, size - margin - thick, margin + armLen, size - margin],
-    [margin, size - margin - armLen, margin + thick, size - margin],
-    // Bottom-right
-    [size - margin - armLen, size - margin - thick, size - margin, size - margin],
-    [size - margin - thick, size - margin - armLen, size - margin, size - margin],
-  ];
+  // Purple (#7B61FF) for TL and BR
+  const pR = 123, pG = 97, pB = 255;
+  // Cyan (#00B4D8) for TR and BL
+  const cR = 0, cG = 180, cB = 216;
 
-  // Process only the 4 corner regions for performance
-  const pad = 2;
-  final cornerRegions = <List<int>>[
-    [margin - pad, margin - pad, margin + armLen + pad, margin + armLen + pad],
-    [size - margin - armLen - pad, margin - pad, size - margin + pad, margin + armLen + pad],
-    [margin - pad, size - margin - armLen - pad, margin + armLen + pad, size - margin + pad],
-    [size - margin - armLen - pad, size - margin - armLen - pad, size - margin + pad, size - margin + pad],
-  ];
+  // Draw rounded L-shaped corners
+  // Top-left (purple)
+  _drawCornerL(pixels, size, margin, margin, armLen, thick, roundR, pR, pG, pB, _Corner.topLeft);
+  // Top-right (cyan)
+  _drawCornerL(pixels, size, size - margin, margin, armLen, thick, roundR, cR, cG, cB, _Corner.topRight);
+  // Bottom-left (cyan)
+  _drawCornerL(pixels, size, margin, size - margin, armLen, thick, roundR, cR, cG, cB, _Corner.bottomLeft);
+  // Bottom-right (purple)
+  _drawCornerL(pixels, size, size - margin, size - margin, armLen, thick, roundR, pR, pG, pB, _Corner.bottomRight);
 
-  for (final region in cornerRegions) {
-    final y1 = region[1].clamp(0, size - 1);
-    final y2 = region[3].clamp(0, size - 1);
-    final x1 = region[0].clamp(0, size - 1);
-    final x2 = region[2].clamp(0, size - 1);
+  // Add glow around corners
+  _drawCornerGlow(pixels, size, margin, margin, armLen, thick, pR, pG, pB, _Corner.topLeft);
+  _drawCornerGlow(pixels, size, size - margin, margin, armLen, thick, cR, cG, cB, _Corner.topRight);
+  _drawCornerGlow(pixels, size, margin, size - margin, armLen, thick, cR, cG, cB, _Corner.bottomLeft);
+  _drawCornerGlow(pixels, size, size - margin, size - margin, armLen, thick, pR, pG, pB, _Corner.bottomRight);
+}
 
-    for (int y = y1; y <= y2; y++) {
-      for (int x = x1; x <= x2; x++) {
-        double minDist = double.infinity;
-        for (final r in rects) {
-          final dx = math.max(r[0] - x, math.max(0, x - r[2])).toDouble();
-          final dy = math.max(r[1] - y, math.max(0, y - r[3])).toDouble();
-          final d = math.sqrt(dx * dx + dy * dy);
-          if (d < minDist) minDist = d;
-        }
+enum _Corner { topLeft, topRight, bottomLeft, bottomRight }
 
-        if (minDist <= 0) {
-          _setPixel(pixels, size, x, y, cR, cG, cB, 255);
-        }
+void _drawCornerL(Uint8List pixels, int size, int cx, int cy, int armLen, int thick, int roundR, int r, int g, int b, _Corner corner) {
+  // Draw two arms as thick lines meeting at a rounded corner
+  // Arms extend outward from the corner point
+  int hx1, hy1, hx2, hy2; // horizontal arm rect
+  int vx1, vy1, vx2, vy2; // vertical arm rect
+  int arcCx, arcCy; // arc center
+
+  switch (corner) {
+    case _Corner.topLeft:
+      hx1 = cx + roundR; hy1 = cy; hx2 = cx + armLen; hy2 = cy + thick;
+      vx1 = cx; vy1 = cy + roundR; vx2 = cx + thick; vy2 = cy + armLen;
+      arcCx = cx + roundR; arcCy = cy + roundR;
+      break;
+    case _Corner.topRight:
+      hx1 = cx - armLen; hy1 = cy; hx2 = cx - roundR; hy2 = cy + thick;
+      vx1 = cx - thick; vy1 = cy + roundR; vx2 = cx; vy2 = cy + armLen;
+      arcCx = cx - roundR; arcCy = cy + roundR;
+      break;
+    case _Corner.bottomLeft:
+      hx1 = cx + roundR; hy1 = cy - thick; hx2 = cx + armLen; hy2 = cy;
+      vx1 = cx; vy1 = cy - armLen; vx2 = cx + thick; vy2 = cy - roundR;
+      arcCx = cx + roundR; arcCy = cy - roundR;
+      break;
+    case _Corner.bottomRight:
+      hx1 = cx - armLen; hy1 = cy - thick; hx2 = cx - roundR; hy2 = cy;
+      vx1 = cx - thick; vy1 = cy - armLen; vx2 = cx; vy2 = cy - roundR;
+      arcCx = cx - roundR; arcCy = cy - roundR;
+      break;
+  }
+
+  // Draw horizontal arm
+  for (int y = math.min(hy1, hy2); y <= math.max(hy1, hy2); y++) {
+    for (int x = math.min(hx1, hx2); x <= math.max(hx1, hx2); x++) {
+      _setPixel(pixels, size, x, y, r, g, b, 255);
+    }
+  }
+
+  // Draw vertical arm
+  for (int y = math.min(vy1, vy2); y <= math.max(vy1, vy2); y++) {
+    for (int x = math.min(vx1, vx2); x <= math.max(vx1, vx2); x++) {
+      _setPixel(pixels, size, x, y, r, g, b, 255);
+    }
+  }
+
+  // Draw rounded corner arc (fill the quarter circle area between the arms)
+  for (int y = arcCy - roundR; y <= arcCy + roundR; y++) {
+    for (int x = arcCx - roundR; x <= arcCx + roundR; x++) {
+      final dx = (x - arcCx).toDouble();
+      final dy = (y - arcCy).toDouble();
+      final dist = math.sqrt(dx * dx + dy * dy);
+      // Only draw in the correct quadrant and within the annulus
+      bool inQuadrant = false;
+      switch (corner) {
+        case _Corner.topLeft: inQuadrant = x <= arcCx && y <= arcCy; break;
+        case _Corner.topRight: inQuadrant = x >= arcCx && y <= arcCy; break;
+        case _Corner.bottomLeft: inQuadrant = x <= arcCx && y >= arcCy; break;
+        case _Corner.bottomRight: inQuadrant = x >= arcCx && y >= arcCy; break;
+      }
+      if (inQuadrant && dist <= roundR && dist >= roundR - thick) {
+        _setPixel(pixels, size, x, y, r, g, b, 255);
       }
     }
   }
+}
+
+void _drawCornerGlow(Uint8List pixels, int size, int cx, int cy, int armLen, int thick, int r, int g, int b, _Corner corner) {
+  const glowRadius = 12;
+  const glowAlpha = 30;
+  int hx1, hy1, hx2, hy2;
+  int vx1, vy1, vx2, vy2;
+
+  switch (corner) {
+    case _Corner.topLeft:
+      hx1 = cx; hy1 = cy; hx2 = cx + armLen; hy2 = cy + thick;
+      vx1 = cx; vy1 = cy; vx2 = cx + thick; vy2 = cy + armLen;
+      break;
+    case _Corner.topRight:
+      hx1 = cx - armLen; hy1 = cy; hx2 = cx; hy2 = cy + thick;
+      vx1 = cx - thick; vy1 = cy; vx2 = cx; vy2 = cy + armLen;
+      break;
+    case _Corner.bottomLeft:
+      hx1 = cx; hy1 = cy - thick; hx2 = cx + armLen; hy2 = cy;
+      vx1 = cx; vy1 = cy - armLen; vx2 = cx + thick; vy2 = cy;
+      break;
+    case _Corner.bottomRight:
+      hx1 = cx - armLen; hy1 = cy - thick; hx2 = cx; hy2 = cy;
+      vx1 = cx - thick; vy1 = cy - armLen; vx2 = cx; vy2 = cy;
+      break;
+  }
+
+  final minX = math.min(math.min(hx1, hx2), math.min(vx1, vx2)) - glowRadius;
+  final maxX = math.max(math.max(hx1, hx2), math.max(vx1, vx2)) + glowRadius;
+  final minY = math.min(math.min(hy1, hy2), math.min(vy1, vy2)) - glowRadius;
+  final maxY = math.max(math.max(hy1, hy2), math.max(vy1, vy2)) + glowRadius;
+
+  for (int y = minY.clamp(0, size - 1); y <= maxY.clamp(0, size - 1); y++) {
+    for (int x = minX.clamp(0, size - 1); x <= maxX.clamp(0, size - 1); x++) {
+      // Distance to nearest arm rectangle
+      final dh = _distToRect(x, y, math.min(hx1, hx2), math.min(hy1, hy2), math.max(hx1, hx2), math.max(hy1, hy2));
+      final dv = _distToRect(x, y, math.min(vx1, vx2), math.min(vy1, vy2), math.max(vx1, vx2), math.max(vy1, vy2));
+      final d = math.min(dh, dv);
+      if (d > 0 && d <= glowRadius) {
+        final alpha = (glowAlpha * (1.0 - d / glowRadius)).round().clamp(0, 255);
+        _blendPixel(pixels, size, x, y, r, g, b, alpha);
+      }
+    }
+  }
+}
+
+double _distToRect(int px, int py, int x1, int y1, int x2, int y2) {
+  final dx = math.max(x1 - px, math.max(0, px - x2)).toDouble();
+  final dy = math.max(y1 - py, math.max(0, py - y2)).toDouble();
+  return math.sqrt(dx * dx + dy * dy);
 }
 
 // ─── x² symbol ─────────────────────────────────────────────────
@@ -118,10 +211,10 @@ void _drawX2Symbol(Uint8List pixels, int size) {
   final cy = size ~/ 2;
 
   // "x" — shifted left to make room for superscript ²
-  final xCx = cx - 30;
-  final xCy = cy + 18;
-  const xHalf = 158; // big x
-  const xThick = 30.0; // bold stroke
+  final xCx = cx - 25;
+  final xCy = cy + 15;
+  const xHalf = 145; // size of x
+  const xThick = 28.0; // bold stroke
 
   // Two diagonal strokes of x:  \ and /
   final s1ax = (xCx - xHalf).toDouble(), s1ay = (xCy - xHalf).toDouble();
@@ -130,28 +223,28 @@ void _drawX2Symbol(Uint8List pixels, int size) {
   final s2bx = (xCx - xHalf).toDouble(), s2by = (xCy + xHalf).toDouble();
 
   // "²" — smaller superscript (5-segment digital style)
-  final twoX = xCx + xHalf + 38;
-  final twoY = xCy - xHalf - 25;
-  const twoW = 62;
-  const twoH = 80;
-  const twoT = 14;
+  final twoX = xCx + xHalf + 30;
+  final twoY = xCy - xHalf - 20;
+  const twoW = 58;
+  const twoH = 75;
+  const twoT = 13;
 
   final twoRects = <List<int>>[
     [twoX, twoY, twoX + twoW, twoY + twoT],                            // top bar
-    [twoX + twoW - twoT, twoY, twoX + twoW, twoY + twoH ~/ 2 + twoT ~/ 2], // right (upper)
+    [twoX + twoW - twoT, twoY, twoX + twoW, twoY + twoH ~/ 2 + twoT ~/ 2], // right upper
     [twoX, twoY + twoH ~/ 2 - twoT ~/ 2, twoX + twoW, twoY + twoH ~/ 2 + twoT ~/ 2], // middle
-    [twoX, twoY + twoH ~/ 2 - twoT ~/ 2, twoX + twoT, twoY + twoH],   // left (lower)
+    [twoX, twoY + twoH ~/ 2 - twoT ~/ 2, twoX + twoT, twoY + twoH],   // left lower
     [twoX, twoY + twoH - twoT, twoX + twoW, twoY + twoH],              // bottom bar
   ];
 
   // Render bounding box
-  const pad = 2;
+  const pad = 18; // extra for glow
   final rxMin = (xCx - xHalf - pad).clamp(0, size - 1);
   final ryMin = (twoY - pad).clamp(0, size - 1);
   final rxMax = (twoX + twoW + pad).clamp(0, size - 1);
   final ryMax = (xCy + xHalf + pad).clamp(0, size - 1);
 
-  for (int y = rxMin; y <= ryMax; y++) {
+  for (int y = ryMin; y <= ryMax; y++) {
     for (int x = rxMin; x <= rxMax; x++) {
       // Distance to x strokes
       final d1 = _distToThickSeg(x.toDouble(), y.toDouble(), s1ax, s1ay, s1bx, s1by, xThick / 2);
@@ -168,11 +261,19 @@ void _drawX2Symbol(Uint8List pixels, int size) {
       }
 
       if (twoDist <= 0) {
-        // ² in cyan accent color
-        _setPixel(pixels, size, x, y, 0, 200, 255, 255);
+        // ² in cyan (#00B4D8)
+        _setPixel(pixels, size, x, y, 0, 180, 216, 255);
+      } else if (twoDist <= 8) {
+        // Cyan glow around ²
+        final alpha = (40 * (1.0 - twoDist / 8)).round().clamp(0, 255);
+        _blendPixel(pixels, size, x, y, 0, 180, 216, alpha);
       } else if (xDist <= 0) {
         // x in white
         _setPixel(pixels, size, x, y, 255, 255, 255, 255);
+      } else if (xDist <= 10) {
+        // White glow around x
+        final alpha = (35 * (1.0 - xDist / 10)).round().clamp(0, 255);
+        _blendPixel(pixels, size, x, y, 255, 255, 255, alpha);
       }
     }
   }

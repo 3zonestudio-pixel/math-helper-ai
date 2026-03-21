@@ -8,24 +8,52 @@ class LogoWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    return Container(
       width: size,
       height: size,
+      decoration: BoxDecoration(
+        color: const Color(0xFF0E1428),
+        borderRadius: BorderRadius.circular(size * 0.18),
+        boxShadow: [
+          BoxShadow(
+            color: AppTheme.accentPurple.withAlpha(40),
+            blurRadius: 24,
+            spreadRadius: 2,
+          ),
+          BoxShadow(
+            color: AppTheme.accentCyan.withAlpha(25),
+            blurRadius: 32,
+            spreadRadius: 4,
+          ),
+        ],
+      ),
       child: CustomPaint(
         painter: _LogoPainter(),
         child: Center(
-          child: ShaderMask(
-            shaderCallback: (bounds) =>
-                AppTheme.primaryGradient.createShader(bounds),
-            child: Text(
-              'x\u00B2',
-              style: TextStyle(
-                fontSize: size * 0.45,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-                fontFamily: 'monospace',
-                height: 1,
-              ),
+          child: RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: 'x',
+                  style: TextStyle(
+                    fontSize: size * 0.42,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                    fontFamily: 'monospace',
+                    height: 1,
+                  ),
+                ),
+                TextSpan(
+                  text: '\u00B2',
+                  style: TextStyle(
+                    fontSize: size * 0.24,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.accentCyan,
+                    fontFamily: 'monospace',
+                    height: 1,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -37,53 +65,59 @@ class LogoWidget extends StatelessWidget {
 class _LogoPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
-    final cornerLength = size.width * 0.28;
-    final cornerRadius = size.width * 0.12;
+    final inset = size.width * 0.12;
+    final cornerLength = size.width * 0.22;
+    final cornerRadius = size.width * 0.06;
 
     // Purple corner paint
     final purplePaint = Paint()
       ..color = AppTheme.accentPurple
-      ..strokeWidth = 3.5
+      ..strokeWidth = 3.0
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
     // Cyan corner paint
     final cyanPaint = Paint()
       ..color = AppTheme.accentCyan
-      ..strokeWidth = 3.5
+      ..strokeWidth = 3.0
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
 
-    // Top-left corner (purple) — rounded
+    final left = inset;
+    final top = inset;
+    final right = size.width - inset;
+    final bottom = size.height - inset;
+
+    // Top-left corner (purple)
     final tlPath = Path()
-      ..moveTo(0, cornerLength)
-      ..lineTo(0, cornerRadius)
-      ..quadraticBezierTo(0, 0, cornerRadius, 0)
-      ..lineTo(cornerLength, 0);
+      ..moveTo(left, top + cornerLength)
+      ..lineTo(left, top + cornerRadius)
+      ..quadraticBezierTo(left, top, left + cornerRadius, top)
+      ..lineTo(left + cornerLength, top);
     canvas.drawPath(tlPath, purplePaint);
 
-    // Top-right corner (cyan) — rounded
+    // Top-right corner (cyan)
     final trPath = Path()
-      ..moveTo(size.width - cornerLength, 0)
-      ..lineTo(size.width - cornerRadius, 0)
-      ..quadraticBezierTo(size.width, 0, size.width, cornerRadius)
-      ..lineTo(size.width, cornerLength);
+      ..moveTo(right - cornerLength, top)
+      ..lineTo(right - cornerRadius, top)
+      ..quadraticBezierTo(right, top, right, top + cornerRadius)
+      ..lineTo(right, top + cornerLength);
     canvas.drawPath(trPath, cyanPaint);
 
-    // Bottom-left corner (cyan) — rounded
+    // Bottom-left corner (cyan)
     final blPath = Path()
-      ..moveTo(0, size.height - cornerLength)
-      ..lineTo(0, size.height - cornerRadius)
-      ..quadraticBezierTo(0, size.height, cornerRadius, size.height)
-      ..lineTo(cornerLength, size.height);
+      ..moveTo(left, bottom - cornerLength)
+      ..lineTo(left, bottom - cornerRadius)
+      ..quadraticBezierTo(left, bottom, left + cornerRadius, bottom)
+      ..lineTo(left + cornerLength, bottom);
     canvas.drawPath(blPath, cyanPaint);
 
-    // Bottom-right corner (purple) — rounded
+    // Bottom-right corner (purple)
     final brPath = Path()
-      ..moveTo(size.width, size.height - cornerLength)
-      ..lineTo(size.width, size.height - cornerRadius)
-      ..quadraticBezierTo(size.width, size.height, size.width - cornerRadius, size.height)
-      ..lineTo(size.width - cornerLength, size.height);
+      ..moveTo(right, bottom - cornerLength)
+      ..lineTo(right, bottom - cornerRadius)
+      ..quadraticBezierTo(right, bottom, right - cornerRadius, bottom)
+      ..lineTo(right - cornerLength, bottom);
     canvas.drawPath(brPath, purplePaint);
   }
 

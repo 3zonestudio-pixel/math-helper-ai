@@ -133,8 +133,8 @@ class OcrService {
         0, -1, 0,
       ]);
 
-      // Adjust contrast for clearer symbol edges
-      image = img.adjustColor(image, contrast: binarize ? 2.5 : 1.6);
+      // Adjust contrast for clearer symbol edges (gentle to preserve thin strokes)
+      image = img.adjustColor(image, contrast: binarize ? 1.8 : 1.3);
 
       // Normalize brightness
       image = img.normalize(image, min: 0, max: 255);
@@ -197,16 +197,16 @@ class OcrService {
 
           // Superscript detection: element's bottom is clearly above the median bottom
           // and the element is notably smaller than average
-          final isSmaller = elHeight < avgHeight * 0.80;
+          final isSmaller = elHeight < avgHeight * 0.65;
           final isSuperscript = i > 0 &&
               isSmaller &&
-              (medianBottom - elBottom) > avgHeight * 0.20;
+              (medianBottom - elBottom) > avgHeight * 0.30;
 
           // Subscript detection: element's top is clearly below the median top
           // and the element is notably smaller
           final isSubscript = i > 0 &&
               isSmaller &&
-              (elTop - medianTop) > avgHeight * 0.20 &&
+              (elTop - medianTop) > avgHeight * 0.30 &&
               !isSuperscript;
 
           if (isSuperscript) {
@@ -450,96 +450,38 @@ class OcrService {
       (m) => 'x',
     );
 
-    // --- Exponent misreads: variable followed by digit → superscript ---
-    // x2 → x², x3 → x³, x4 → x⁴, etc. (in math context)
+    // --- Exponent misreads: single-letter variable followed by single digit → superscript ---
+    // ONLY for single variables followed by a single digit at word boundary (conservative)
     final exponentMap = {'2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹'};
     for (final entry in exponentMap.entries) {
-      // "x2" where 2 is likely an exponent (followed by operator or end)
+      // "x2" at end of expression or before operator (only single letter + single digit)
       cleaned = cleaned.replaceAllMapped(
-        RegExp('([a-zA-Z)\\]])${entry.key}(?=\\s*[+\\-×÷*/=)\\s]|\$)'),
-        (m) => '${m.group(1)}${entry.value}',
-      );
-      // "x 2" with space (OCR artifact)
-      cleaned = cleaned.replaceAllMapped(
-        RegExp('([a-zA-Z])\\s+${entry.key}(?=\\s*[+\\-×÷*/=)\\s]|\$)'),
+        RegExp('(?<![a-zA-Z0-9])([a-zA-Z])${entry.key}(?=\\s*[+\\-×÷*/=)\\s]|\$)'),
         (m) => '${m.group(1)}${entry.value}',
       );
     }
 
     // --- Integral sign misreads ---
-    // 'f', 'S', 'J' at start of expression followed by integrand and "dx"/"dy"/etc.
+    // Only at start of expression: 'S' or 'J' followed by integrand with "dx"/"dy"
     cleaned = cleaned.replaceAllMapped(
-      RegExp(r'^[fSJj]\s*(?=[a-zA-Z0-9(].*d[a-zA-Z])'),
-      (m) => '∫',
-    );
-    // Mid-expression: " f " or " S " before integrand with dx
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'(?<=[\s=+\-])[fSJ]\s+(?=[a-zA-Z0-9(].*d[a-zA-Z])'),
+      RegExp(r'^[SJ]\s*(?=\s*[a-zA-Z0-9(].*\bd[xyzt]\b)'),
       (m) => '∫',
     );
 
     // --- Square root misreads ---
-    // 'V' or 'v' before number/parens (not part of a word) → √
+    // Only 'V' directly before a parenthesized expression (not part of a word) → √
     cleaned = cleaned.replaceAllMapped(
-      RegExp(r'(?<![a-zA-Z])[Vv](?=\s*[\d(])'),
+      RegExp(r'(?<![a-zA-Z])V(?=\s*\()'),
       (m) => '√',
-    );
-    // "V-" at start → √ (radical with a bar)
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'^[Vv][-—]\s*(?=[\d(a-zA-Z])'),
-      (m) => '√',
-    );
-
-    // --- Pi misreads ---
-    // "TT" or "II" or "n" in numeric context → π
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'(?<=[\d*/×÷(=\s])(?:TT|II)(?=[\d*/×÷)=\s]|$)'),
-      (m) => 'π',
     );
 
     // --- Infinity misreads ---
     // Standalone "8" that is clearly infinity (after lim, →, or comparison)
     // but this is risky — skip unless in clear context
-    // "oc" or "0c" or "oO" → ∞ in math context
+    // "oc" or "0c" or "oO" → ∞ only in very clear context (after arrows/comparisons)
     cleaned = cleaned.replaceAllMapped(
-      RegExp(r'(?<=[→=<>≤≥,(\s])(?:0c|oc|oO|0C|OC)(?=[)\s,]|$)'),
+      RegExp(r'(?<=[→])(?:oc|oO|0C|OC)(?=[)\s,]|$)'),
       (m) => '∞',
-    );
-
-    // --- Sigma / Summation misreads ---
-    // Capital 'E' at start with limits notation → Σ
-    // This is too risky as a blanket rule, only in clear summation context
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'(?<=^|\s)E(?=\s*[\[({]?\s*[a-zA-Z]\s*=)'),
-      (m) => 'Σ',
-    );
-
-    // --- Delta misreads ---
-    // 'A' before a variable in differential context → Δ
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'(?<=^|\s)A(?=[a-zA-Z]\s*=)'),
-      (m) => 'Δ',
-    );
-
-    // --- Degree misreads ---
-    // 'o' or '0' after a number when it looks like degrees → °
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'(\d)\s*[oO](?=\s*[+\-×÷*/=,)\s]|$)'),
-      (m) => '${m.group(1)}°',
-    );
-
-    // --- Angle misreads ---
-    // '<' before a letter (angle notation) → ∠ if followed by three capital letters
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'<(?=[A-Z]{2,3}\b)'),
-      (m) => '∠',
-    );
-
-    // --- Theta misreads in trig ---
-    // "0" after sin/cos/tan → θ
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'((?:sin|cos|tan|cot|sec|csc)\s*\(?\s*)0(?=\s*\)?\s*[+\-×÷*/=\s]|$)', caseSensitive: false),
-      (m) => '${m.group(1)}θ',
     );
 
     // ═══════════════════════════════════════════════════
@@ -603,39 +545,22 @@ class OcrService {
     cleaned = cleaned.replaceAll(RegExp(r'\barc\s*tan\b', caseSensitive: false), 'arctan');
 
     // ═══════════════════════════════════════════════════
-    // 5b. ADDITIONAL MATH PATTERN FIXES
+    // 5b. ADDITIONAL SAFE PATTERN FIXES
     // ═══════════════════════════════════════════════════
 
-    // Fraction patterns: "1 / 2" → keep, but fix "l/2" → "1/2"
+    // Fraction patterns: fix "l/2" → "1/2" (lowercase L misread as 1)
     cleaned = cleaned.replaceAllMapped(
       RegExp(r'(?<![a-zA-Z])l(?=/\s*\d)'),
       (m) => '1',
     );
 
-    // "x times y" or "x X y" between numbers = multiplication
+    // "x X y" between numbers = multiplication (capital X between digits)
     cleaned = cleaned.replaceAllMapped(
-      RegExp(r'(\d)\s*[xX]\s*(\d)'),
+      RegExp(r'(\d)\s*X\s*(\d)'),
       (m) => '${m.group(1)} × ${m.group(2)}',
     );
 
-    // Fix "+" misread as "t" between digits: "3t5" is unlikely, more likely "3+5"
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'(\d)\s*t\s*(\d)(?!\d*[a-zA-Z])'),
-      (m) => '${m.group(1)} + ${m.group(2)}',
-    );
-
-    // "n!" factorial — ensure 'n' stays, "nl" → "n!"
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'(\d+)\s*[l|I](?=\s*[+\-×÷*/=)\s]|$)'),
-      (m) => '${m.group(1)}!',
-    );
-
-    // Percentage: "%" sometimes read as "96" or "yo" — keep as is, AI handles
-    // But fix common "°/o" → "%"
-    cleaned = cleaned.replaceAll('°/o', '%');
-    cleaned = cleaned.replaceAll('°/0', '%');
-
-    // Fix "log base" notation: "log2" → "log₂", "log10" → "log₁₀"
+    // Fix "log base" notation: "log2(" → "log₂(", "log10(" → "log₁₀("
     cleaned = cleaned.replaceAllMapped(
       RegExp(r'\blog(\d{1,2})(?=\s*\()'),
       (m) {
@@ -646,12 +571,9 @@ class OcrService {
       },
     );
 
-    // Fix absolute value: "|x|" sometimes OCR reads pipes as "l" or "I"
-    // "lxl" in math context → |x|
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'(?<![a-zA-Z])l([a-zA-Z0-9+\-×÷*/^²³]+)l(?![a-zA-Z])'),
-      (m) => '|${m.group(1)}|',
-    );
+    // Fix °/o → %
+    cleaned = cleaned.replaceAll('°/o', '%');
+    cleaned = cleaned.replaceAll('°/0', '%');
 
     // ═══════════════════════════════════════════════════
     // 6. SPACING NORMALIZATION
@@ -673,33 +595,18 @@ class OcrService {
     cleaned = cleaned.replaceAll(RegExp(r'\s+'), ' ').trim();
 
     // ═══════════════════════════════════════════════════
-    // 7. DIGIT/LETTER CONFUSION CLEANUP
+    // 7. DIGIT/LETTER CONFUSION CLEANUP (conservative — only between digits)
     // ═══════════════════════════════════════════════════
 
-    // 'O' or 'o' between digits → 0
+    // 'O' or 'o' surrounded by digits → 0
     cleaned = cleaned.replaceAllMapped(
       RegExp(r'(?<=\d)[Oo](?=\d)'),
       (m) => '0',
     );
-    // 'l' or 'I' between digits → 1
+    // 'l' or 'I' surrounded by digits → 1
     cleaned = cleaned.replaceAllMapped(
       RegExp(r'(?<=\d)[lI](?=\d)'),
       (m) => '1',
-    );
-    // 'B' between digits → 8
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'(?<=\d)B(?=\d)'),
-      (m) => '8',
-    );
-    // 'S' between digits → 5
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'(?<=\d)S(?=\d)'),
-      (m) => '5',
-    );
-    // 'Z' between digits → 2
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'(?<=\d)Z(?=\d)'),
-      (m) => '2',
     );
 
     // ═══════════════════════════════════════════════════
@@ -746,27 +653,14 @@ class OcrService {
   String _finalMathValidation(String text) {
     String result = text;
 
-    // Remove non-math garbage chars that OCR sometimes adds
-    result = result.replaceAll(RegExp(r'[~`@#\$&_\\]'), '');
-
-    // Fix doubled operators: "++", "--" (not valid), "+ +" etc.
+    // Fix doubled operators: "++", "×× " etc.
     result = result.replaceAll(RegExp(r'\+\s*\+'), '+');
-    result = result.replaceAll(RegExp(r'(?<!\w)-\s*-(?!\w)'), '+');  // double minus = plus
     result = result.replaceAll(RegExp(r'×\s*×'), '×');
     result = result.replaceAll(RegExp(r'÷\s*÷'), '÷');
     result = result.replaceAll(RegExp(r'=\s*='), '=');
 
-    // Fix "= =" → "="
-    result = result.replaceAll(RegExp(r'=\s+='), '=');
-
-    // Remove trailing operators (OCR noise): "+ " or "= " at end
-    result = result.replaceAll(RegExp(r'[+\-×÷*/]\s*$'), '').trim();
-
-    // Remove leading operators (except minus for negative): "+ 3x" → "3x"
-    result = result.replaceAll(RegExp(r'^[+×÷*/]\s*'), '');
-
-    // Ensure there's content between operators and equals
-    // "3x = " → keep as is, it's a valid partial equation
+    // Remove trailing operators (OCR noise): "+ " at end
+    result = result.replaceAll(RegExp(r'[+×÷*/]\s*$'), '').trim();
 
     // Final space cleanup
     result = result.replaceAll(RegExp(r'\s+'), ' ').trim();

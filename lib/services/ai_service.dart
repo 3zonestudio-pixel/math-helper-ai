@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:http/http.dart' as http;
-import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/math_problem.dart';
 
@@ -76,9 +75,6 @@ class AiService {
   static String _apiKey = '$_p1$_p2$_p3$_p4$_p5';
   static String _apiUrl = 'https://api.longcat.chat/openai/v1/chat/completions';
   static String _model = 'LongCat-Flash-Chat';
-
-  // Persistent HTTP client for connection reuse
-  static final http.Client _httpClient = http.Client();
 
   // In-memory response cache (LRU-style with max size)
   static const int _maxCacheSize = 200;
@@ -174,19 +170,8 @@ class AiService {
       return result;
     }
 
-    // Check if we can reach the API
-    bool isOnline = isConfigured;
-    if (isOnline) {
-      try {
-        final connectivity = await Connectivity().checkConnectivity();
-        if (connectivity.every((r) => r == ConnectivityResult.none)) {
-          isOnline = false;
-        }
-      } catch (_) {}
-    }
-
-    // If offline or not configured, use local solver
-    if (!isOnline) {
+    // If not configured, use local solver
+    if (!isConfigured) {
       final result = _solveLocally(
         problem: normalizedProblem,
         language: language,
@@ -209,61 +194,60 @@ class AiService {
       return result;
     }
 
-    // Try AI for all non-arithmetic problems
-    try {
-      final systemPrompt = _buildSystemPrompt(language, difficulty, explanationMode);
-      final response = await _httpClient.post(
-        Uri.parse(_apiUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_apiKey',
-        },
-        body: jsonEncode({
-          'model': _model,
-          'messages': [
-            {'role': 'system', 'content': systemPrompt},
-            {'role': 'user', 'content': normalizedProblem},
-          ],
-          'temperature': 0.1,
-          'max_tokens': 2048,
-        }),
-      ).timeout(const Duration(seconds: 30));
+    // Try AI for all non-arithmetic problems (with retry)
+    for (int attempt = 0; attempt < 2; attempt++) {
+      try {
+        final systemPrompt = _buildSystemPrompt(language, difficulty, explanationMode);
+        final response = await http.post(
+          Uri.parse(_apiUrl),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $_apiKey',
+          },
+          body: jsonEncode({
+            'model': _model,
+            'messages': [
+              {'role': 'system', 'content': systemPrompt},
+              {'role': 'user', 'content': normalizedProblem},
+            ],
+            'temperature': 0.1,
+            'max_tokens': 2048,
+          }),
+        ).timeout(const Duration(seconds: 45));
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final choices = data['choices'];
-        if (choices == null || choices is! List || choices.isEmpty) {
-          throw Exception('Invalid API response: missing choices');
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final choices = data['choices'];
+          if (choices == null || choices is! List || choices.isEmpty) {
+            throw Exception('Invalid API response: missing choices');
+          }
+          final message = choices[0]['message'];
+          if (message == null || message['content'] == null) {
+            throw Exception('Invalid API response: missing content');
+          }
+          final content = message['content'] as String;
+          final result = _parseAiResponse(content, problem, language, difficulty, category);
+          _addToCache(key, result);
+          await _recordRequest();
+          return result;
         }
-        final message = choices[0]['message'];
-        if (message == null || message['content'] == null) {
-          throw Exception('Invalid API response: missing content');
-        }
-        final content = message['content'] as String;
-        final result = _parseAiResponse(content, problem, language, difficulty, category);
-        _addToCache(key, result);
-        await _recordRequest();
-        return result;
-      } else {
-        final result = _solveLocally(
-          problem: normalizedProblem,
-          language: language,
-          difficulty: difficulty,
-          category: category,
-        );
-        _addToCache(key, result);
-        return result;
+        // Non-200: retry once
+        if (attempt == 0) continue;
+      } catch (_) {
+        // Retry once on any error
+        if (attempt == 0) continue;
       }
-    } catch (e) {
-      final result = _solveLocally(
-        problem: normalizedProblem,
-        language: language,
-        difficulty: difficulty,
-        category: category,
-      );
-      _addToCache(key, result);
-      return result;
     }
+
+    // All AI attempts failed — fallback to local solver
+    final result = _solveLocally(
+      problem: normalizedProblem,
+      language: language,
+      difficulty: difficulty,
+      category: category,
+    );
+    _addToCache(key, result);
+    return result;
   }
 
   /// Add to cache with eviction when full
