@@ -234,42 +234,31 @@ void _drawX2Symbol(Uint8List pixels, int size) {
     80,
   );
 
-  // "²" — smooth curved superscript
-  final twoOx = (xCx + xHalf + 65).toDouble();
-  final twoOy = (xCy - xHalf - 40).toDouble();
-  const twoScale = 55.0;
-  const twoThick = 14.0;
+  // "²" — clean bold superscript using thick filled segments
+  final twoOx = (xCx + xHalf + 55).toDouble();
+  final twoOy = (xCy - xHalf - 50).toDouble();
+  const twoW = 80;
+  const twoH = 100;
+  const twoT = 20; // thick strokes for bold look
 
-  // Curve: top arc + diagonal swoop
-  final twoCurve1 = _cubicBezierPoints(
-    twoOx - twoScale * 0.65, twoOy - twoScale * 0.15,
-    twoOx - twoScale * 0.55, twoOy - twoScale * 1.05,
-    twoOx + twoScale * 0.85, twoOy - twoScale * 1.05,
-    twoOx + twoScale * 0.7,  twoOy + twoScale * 0.05,
-    50,
-  );
-  final twoCurve2 = _cubicBezierPoints(
-    twoOx + twoScale * 0.7,  twoOy + twoScale * 0.05,
-    twoOx + twoScale * 0.5,  twoOy + twoScale * 0.55,
-    twoOx + twoScale * 0.05, twoOy + twoScale * 0.7,
-    twoOx - twoScale * 0.7,  twoOy + twoScale * 0.85,
-    40,
-  );
-  // Bottom bar
-  final twoBar = _cubicBezierPoints(
-    twoOx - twoScale * 0.75, twoOy + twoScale * 0.85,
-    twoOx - twoScale * 0.25, twoOy + twoScale * 0.85,
-    twoOx + twoScale * 0.25, twoOy + twoScale * 0.85,
-    twoOx + twoScale * 0.75, twoOy + twoScale * 0.85,
-    20,
-  );
-  final twoAllCurves = [twoCurve1, twoCurve2, twoBar];
+  final twoX = twoOx.toInt();
+  final twoY = twoOy.toInt();
+
+  // 5-segment bold "2" with rounded corners via distance fields
+  // Segments: top bar, right-upper vertical, middle bar, left-lower vertical, bottom bar
+  final twoRects = <List<int>>[
+    [twoX, twoY, twoX + twoW, twoY + twoT],                            // top bar
+    [twoX + twoW - twoT, twoY, twoX + twoW, twoY + twoH ~/ 2 + twoT ~/ 2], // right upper
+    [twoX, twoY + twoH ~/ 2 - twoT ~/ 2, twoX + twoW, twoY + twoH ~/ 2 + twoT ~/ 2], // middle
+    [twoX, twoY + twoH ~/ 2 - twoT ~/ 2, twoX + twoT, twoY + twoH],   // left lower
+    [twoX, twoY + twoH - twoT, twoX + twoW, twoY + twoH],              // bottom bar
+  ];
 
   // Render bounding box
   const pad = 18; // extra for glow
   final rxMin = (xCx - xHalf - pad).clamp(0, size - 1);
-  final ryMin = (twoOy - twoScale * 1.1 - pad).toInt().clamp(0, size - 1);
-  final rxMax = (twoOx + twoScale * 0.8 + pad).toInt().clamp(0, size - 1);
+  final ryMin = (twoY - pad).clamp(0, size - 1);
+  final rxMax = (twoX + twoW + pad).clamp(0, size - 1);
   final ryMax = (xCy + xHalf + pad).clamp(0, size - 1);
 
   for (int y = ryMin; y <= ryMax; y++) {
@@ -297,18 +286,13 @@ void _drawX2Symbol(Uint8List pixels, int size) {
       }
       final xDist = math.min(d1, d2);
 
-      // Distance to ² curves
+      // Distance to ² rects
       double twoDist = double.infinity;
-      for (final curve in twoAllCurves) {
-        for (int i = 0; i < curve.length - 1; i++) {
-          final d = _distToThickSeg(
-            x.toDouble(), y.toDouble(),
-            curve[i][0], curve[i][1],
-            curve[i + 1][0], curve[i + 1][1],
-            twoThick / 2,
-          );
-          if (d < twoDist) twoDist = d;
-        }
+      for (final r in twoRects) {
+        final dx = math.max(r[0] - x, math.max(0, x - r[2])).toDouble();
+        final dy = math.max(r[1] - y, math.max(0, y - r[3])).toDouble();
+        final d = math.sqrt(dx * dx + dy * dy);
+        if (d < twoDist) twoDist = d;
       }
 
       if (twoDist <= 0) {
