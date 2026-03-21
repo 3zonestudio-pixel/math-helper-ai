@@ -30,7 +30,7 @@ class LogoWidget extends StatelessWidget {
       child: CustomPaint(
         painter: _LogoPainter(logoSize: size),
         child: Align(
-          alignment: const Alignment(0.38, -0.18),
+          alignment: const Alignment(0.38, -0.38),
           child: Text(
             '\u00B2',
             style: TextStyle(

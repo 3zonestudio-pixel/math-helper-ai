@@ -236,7 +236,7 @@ void _drawX2Symbol(Uint8List pixels, int size) {
 
   // "²" — BIGGER superscript (5-segment digital style)
   final twoX = xCx + xHalf + 25;
-  final twoY = xCy - xHalf - 55;
+  final twoY = xCy - xHalf - 95;
   const twoW = 85;
   const twoH = 110;
   const twoT = 18;
