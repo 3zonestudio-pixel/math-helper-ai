@@ -6,6 +6,74 @@ import '../services/ocr_service.dart';
 import '../theme.dart';
 import 'text_input_screen.dart';
 
+/// Painter that draws rounded scan-style corner brackets
+class _ScanCornerPainter extends CustomPainter {
+  final Color color;
+  final double cornerLength;
+  final double cornerRadius;
+  final double strokeWidth;
+
+  _ScanCornerPainter({
+    required this.color,
+    this.cornerLength = 32,
+    this.cornerRadius = 14,
+    this.strokeWidth = 3.5,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = strokeWidth
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final w = size.width;
+    final h = size.height;
+    final cl = cornerLength;
+    final r = cornerRadius;
+
+    // Top-left corner
+    final topLeft = Path()
+      ..moveTo(0, cl)
+      ..lineTo(0, r)
+      ..quadraticBezierTo(0, 0, r, 0)
+      ..lineTo(cl, 0);
+    canvas.drawPath(topLeft, paint);
+
+    // Top-right corner
+    final topRight = Path()
+      ..moveTo(w - cl, 0)
+      ..lineTo(w - r, 0)
+      ..quadraticBezierTo(w, 0, w, r)
+      ..lineTo(w, cl);
+    canvas.drawPath(topRight, paint);
+
+    // Bottom-left corner
+    final bottomLeft = Path()
+      ..moveTo(0, h - cl)
+      ..lineTo(0, h - r)
+      ..quadraticBezierTo(0, h, r, h)
+      ..lineTo(cl, h);
+    canvas.drawPath(bottomLeft, paint);
+
+    // Bottom-right corner
+    final bottomRight = Path()
+      ..moveTo(w - cl, h)
+      ..lineTo(w - r, h)
+      ..quadraticBezierTo(w, h, w, h - r)
+      ..lineTo(w, h - cl);
+    canvas.drawPath(bottomRight, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ScanCornerPainter old) =>
+      color != old.color ||
+      cornerLength != old.cornerLength ||
+      cornerRadius != old.cornerRadius ||
+      strokeWidth != old.strokeWidth;
+}
+
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
 
@@ -41,49 +109,70 @@ class _CameraScreenState extends State<CameraScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Scan area
+              // Scan area with corner brackets
               Expanded(
                 flex: 2,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: isDark ? AppTheme.cardDark : Colors.white,
-                    borderRadius: BorderRadius.circular(28),
-                    border: Border.all(
-                      color: isDark
-                          ? Colors.white.withAlpha(10)
-                          : Colors.black.withAlpha(8),
+                child: Stack(
+                  children: [
+                    // Background card
+                    Container(
+                      decoration: BoxDecoration(
+                        color: isDark ? AppTheme.cardDark : Colors.white,
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white.withAlpha(10)
+                              : Colors.black.withAlpha(8),
+                        ),
+                      ),
+                      child: _isProcessing
+                          ? Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  SizedBox(
+                                    width: 48,
+                                    height: 48,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 3,
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                          AppTheme.accentPurple),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 18),
+                                  Text(
+                                    l10n.processingImage,
+                                    style: TextStyle(
+                                      color: isDark
+                                          ? AppTheme.textLight
+                                          : AppTheme.textDark,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : _recognizedText != null
+                              ? _buildRecognizedResult(l10n, isDark)
+                              : _buildScanPlaceholder(l10n, isDark),
                     ),
-                  ),
-                  child: _isProcessing
-                      ? Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SizedBox(
-                                width: 48,
-                                height: 48,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 3,
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                      AppTheme.accentPurple),
-                                ),
-                              ),
-                              const SizedBox(height: 18),
-                              Text(
-                                l10n.processingImage,
-                                style: TextStyle(
-                                  color: isDark
-                                      ? AppTheme.textLight
-                                      : AppTheme.textDark,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
+                    // Scan-style rounded corner overlay
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: CustomPaint(
+                            painter: _ScanCornerPainter(
+                              color: AppTheme.accentPurple.withAlpha(180),
+                              cornerLength: 36,
+                              cornerRadius: 18,
+                              strokeWidth: 3.5,
+                            ),
                           ),
-                        )
-                      : _recognizedText != null
-                          ? _buildRecognizedResult(l10n, isDark)
-                          : _buildScanPlaceholder(l10n, isDark),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
 

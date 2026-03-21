@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/math_problem.dart';
 
 // API key parts are split to avoid exposure in source control
@@ -83,6 +84,50 @@ class AiService {
   static const int _maxCacheSize = 200;
   static final Map<String, MathProblem> _cache = {};
 
+  // Rate limiting: 1500 AI requests per day
+  static const int _dailyLimit = 1500;
+  static const String _rateLimitCountKey = 'ai_rate_limit_count';
+  static const String _rateLimitDateKey = 'ai_rate_limit_date';
+
+  /// Check if the user has remaining AI requests today
+  static Future<bool> _canMakeRequest() async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now().toIso8601String().substring(0, 10); // "YYYY-MM-DD"
+    final storedDate = prefs.getString(_rateLimitDateKey) ?? '';
+    if (storedDate != today) {
+      // New day — reset counter
+      await prefs.setString(_rateLimitDateKey, today);
+      await prefs.setInt(_rateLimitCountKey, 0);
+      return true;
+    }
+    final count = prefs.getInt(_rateLimitCountKey) ?? 0;
+    return count < _dailyLimit;
+  }
+
+  /// Increment the daily request counter
+  static Future<void> _recordRequest() async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final storedDate = prefs.getString(_rateLimitDateKey) ?? '';
+    if (storedDate != today) {
+      await prefs.setString(_rateLimitDateKey, today);
+      await prefs.setInt(_rateLimitCountKey, 1);
+    } else {
+      final count = prefs.getInt(_rateLimitCountKey) ?? 0;
+      await prefs.setInt(_rateLimitCountKey, count + 1);
+    }
+  }
+
+  /// Get remaining AI requests for today
+  static Future<int> getRemainingRequests() async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final storedDate = prefs.getString(_rateLimitDateKey) ?? '';
+    if (storedDate != today) return _dailyLimit;
+    final count = prefs.getInt(_rateLimitCountKey) ?? 0;
+    return (_dailyLimit - count).clamp(0, _dailyLimit);
+  }
+
   static void configure({
     required String apiKey,
     String? apiUrl,
@@ -152,6 +197,18 @@ class AiService {
       return result;
     }
 
+    // Check daily rate limit before calling AI
+    if (!await _canMakeRequest()) {
+      final result = _solveLocally(
+        problem: normalizedProblem,
+        language: language,
+        difficulty: difficulty,
+        category: category,
+      );
+      _addToCache(key, result);
+      return result;
+    }
+
     // Try AI for all non-arithmetic problems
     try {
       final systemPrompt = _buildSystemPrompt(language, difficulty, explanationMode);
@@ -185,6 +242,7 @@ class AiService {
         final content = message['content'] as String;
         final result = _parseAiResponse(content, problem, language, difficulty, category);
         _addToCache(key, result);
+        await _recordRequest();
         return result;
       } else {
         final result = _solveLocally(
