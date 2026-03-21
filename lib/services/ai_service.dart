@@ -134,6 +134,71 @@ class AiService {
     if (model != null) _model = model;
   }
 
+  /// Use AI to reconstruct a clean math expression from raw OCR text.
+  /// ML Kit can't understand math structure — this lets the AI interpret
+  /// garbled OCR output and return the intended mathematical expression.
+  static Future<String?> reconstructMathFromOcr(String rawOcrText) async {
+    if (rawOcrText.trim().isEmpty) return null;
+    if (!isConfigured) return null;
+    if (!await _canMakeRequest()) return null;
+
+    const prompt = '''You are a math OCR correction engine. The following text was extracted from a photo of a math problem using basic text OCR. The OCR likely made errors — wrong characters, missing symbols, broken structure, misread letters as digits or vice versa.
+
+Your job: Reconstruct the INTENDED mathematical expression or problem from this garbled OCR text.
+
+RULES:
+- Return ONLY the corrected math expression/problem, nothing else
+- Use standard math notation: +, -, ×, ÷, =, ^, √, π, ∫, etc.
+- Use ^ for exponents (e.g. x^2), √ for square root
+- If it looks like an equation, include the = sign
+- If there are multiple lines/expressions, separate them with newlines
+- If the text contains words like "solve", "find", "evaluate", keep them
+- Do NOT explain or solve — just correct the expression
+- If you truly cannot determine any math from the text, reply with just: ERROR''';
+
+    for (int attempt = 0; attempt < 2; attempt++) {
+      try {
+        final client = http.Client();
+        try {
+          final response = await client.post(
+            Uri.parse(_apiUrl),
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': 'Bearer $_apiKey',
+            },
+            body: jsonEncode({
+              'model': _model,
+              'messages': [
+                {'role': 'system', 'content': prompt},
+                {'role': 'user', 'content': rawOcrText},
+              ],
+              'temperature': 0.0,
+              'max_tokens': 256,
+            }),
+          ).timeout(const Duration(seconds: 20));
+
+          if (response.statusCode == 200) {
+            final data = jsonDecode(response.body);
+            final choices = data['choices'];
+            if (choices != null && choices is List && choices.isNotEmpty) {
+              final content = (choices[0]['message']?['content'] as String?)?.trim();
+              if (content != null && content.isNotEmpty && content != 'ERROR') {
+                await _recordRequest();
+                return content;
+              }
+            }
+          }
+          if (attempt == 0) continue;
+        } finally {
+          client.close();
+        }
+      } catch (_) {
+        if (attempt == 0) continue;
+      }
+    }
+    return null; // AI reconstruction failed — caller uses raw OCR text
+  }
+
   static bool get isConfigured => _apiKey.isNotEmpty;
 
   /// Generate a cache key from problem parameters

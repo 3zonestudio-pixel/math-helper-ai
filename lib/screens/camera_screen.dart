@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_picker/image_picker.dart';
 import '../l10n/app_localizations.dart';
 import '../services/ocr_service.dart';
+import '../services/ai_service.dart';
 import '../theme.dart';
 import 'text_input_screen.dart';
 
@@ -85,6 +86,7 @@ class _CameraScreenState extends State<CameraScreen> {
   final OcrService _ocrService = OcrService();
   final ImagePicker _picker = ImagePicker();
   bool _isProcessing = false;
+  String _processingStatus = '';
   String? _recognizedText;
   String? _errorMessage;
 
@@ -141,7 +143,10 @@ class _CameraScreenState extends State<CameraScreen> {
                                   ),
                                   const SizedBox(height: 18),
                                   Text(
-                                    l10n.processingImage,
+                                    _processingStatus.isNotEmpty
+                                        ? _processingStatus
+                                        : l10n.processingImage,
+                                    textAlign: TextAlign.center,
                                     style: TextStyle(
                                       color: isDark
                                           ? AppTheme.textLight
@@ -431,6 +436,7 @@ class _CameraScreenState extends State<CameraScreen> {
 
     setState(() {
       _isProcessing = true;
+      _processingStatus = '';
       _errorMessage = null;
       _recognizedText = null;
     });
@@ -448,22 +454,40 @@ class _CameraScreenState extends State<CameraScreen> {
         return;
       }
 
-      final text = await _ocrService.recognizeText(image.path);
+      // Phase 1: ML Kit text extraction
+      if (mounted) {
+        setState(() => _processingStatus = 'Scanning text...');
+      }
+      final rawText = await _ocrService.recognizeText(image.path);
+
+      if (!mounted) return;
+
+      if (rawText.isEmpty) {
+        setState(() {
+          _isProcessing = false;
+          _processingStatus = '';
+          _errorMessage = AppLocalizations.of(context)?.noTextRecognized ??
+              'No text recognized. Please try again.';
+        });
+        return;
+      }
+
+      // Phase 2: AI-powered math reconstruction
+      setState(() => _processingStatus = 'Interpreting math...');
+      final aiReconstructed = await AiService.reconstructMathFromOcr(rawText);
 
       if (!mounted) return;
       setState(() {
         _isProcessing = false;
-        if (text.isEmpty) {
-          _errorMessage = AppLocalizations.of(context)?.noTextRecognized ??
-              'No text recognized. Please try again.';
-        } else {
-          _recognizedText = text;
-        }
+        _processingStatus = '';
+        // Use AI-reconstructed text if available, otherwise fall back to raw OCR
+        _recognizedText = aiReconstructed ?? rawText;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isProcessing = false;
+        _processingStatus = '';
         _errorMessage = AppLocalizations.of(context)?.noTextRecognized ??
             'Failed to recognize text. Please try again.';
       });

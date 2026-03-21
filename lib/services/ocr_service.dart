@@ -279,6 +279,7 @@ class OcrService {
 
     // ═══════════════════════════════════════════════════
     // 1. UNICODE MATH SYMBOL NORMALIZATION
+    //    (normalize variant Unicode chars to standard forms)
     // ═══════════════════════════════════════════════════
     final replacements = <String, String>{
       // --- Minus / dash variants ---
@@ -288,7 +289,7 @@ class OcrService {
       '\uFF0B': '+',
       // --- Multiplication variants → × ---
       '\u00D7': '×', '\u2715': '×', '\u2716': '×',
-      '\u22C5': '·', '\u2022': '·',         // dot product
+      '\u22C5': '·', '\u2022': '·',
       // --- Division variants ---
       '\u00F7': '÷', '\u2215': '/',
       // --- Equals / comparison ---
@@ -314,7 +315,7 @@ class OcrService {
       '\u222B': '∫', '\u222C': '∬', '\u222D': '∭', '\u222E': '∮',
       '\u2202': '∂', '\u221E': '∞',
       '\u2211': 'Σ', '\u220F': 'Π',
-      // --- Greek letters (common in math) ---
+      // --- Greek letters ---
       '\u03B1': 'α', '\u03B2': 'β', '\u03B3': 'γ', '\u03B4': 'δ',
       '\u03B5': 'ε', '\u03B6': 'ζ', '\u03B7': 'η', '\u03B8': 'θ',
       '\u03B9': 'ι', '\u03BA': 'κ', '\u03BB': 'λ', '\u03BC': 'μ',
@@ -334,14 +335,9 @@ class OcrService {
       '\u2192': '→', '\u2190': '←', '\u2194': '↔',
       // --- Miscellaneous math ---
       '\u00B1': '±', '\u2213': '∓',
-      '\u221D': '∝',      // proportional
-      '\u2234': '∴',      // therefore
-      '\u2235': '∵',      // because
-      '\u00B0': '°',      // degree
-      '\u2220': '∠',      // angle
-      '\u22A5': '⊥',      // perpendicular
-      '\u2225': '∥',      // parallel
-      '\u2261': '≡',      // identical/congruent
+      '\u221D': '∝', '\u2234': '∴', '\u2235': '∵',
+      '\u00B0': '°', '\u2220': '∠', '\u22A5': '⊥',
+      '\u2225': '∥', '\u2261': '≡',
       // --- Parentheses variants ---
       '\uFF08': '(', '\uFF09': ')', '\u27E8': '(', '\u27E9': ')',
       '\uFF3B': '[', '\uFF3D': ']', '\uFF5B': '{', '\uFF5D': '}',
@@ -355,317 +351,12 @@ class OcrService {
     }
 
     // ═══════════════════════════════════════════════════
-    // 2. MULTI-CHARACTER PATTERN NORMALIZATION
-    //    (text sequences OCR produces for special symbols)
+    // 2. MINIMAL SPACING NORMALIZATION
     // ═══════════════════════════════════════════════════
-
-    // "+-" or "+/-" → ±
-    cleaned = cleaned.replaceAll(RegExp(r'\+\s*/?\s*-'), '±');
-
-    // "<=" or "=<" → ≤ ; ">=" or "=>" → ≥
-    cleaned = cleaned.replaceAll('<=', '≤');
-    cleaned = cleaned.replaceAll('=<', '≤');
-    cleaned = cleaned.replaceAll('>=', '≥');
-    cleaned = cleaned.replaceAll('=>', '≥');
-
-    // "!=" or "/=" → ≠
-    cleaned = cleaned.replaceAll('!=', '≠');
-    cleaned = cleaned.replaceAll(RegExp(r'(?<!\d)/='), '≠');
-
-    // "~=" or "~~" → ≈
-    cleaned = cleaned.replaceAll('~=', '≈');
-    cleaned = cleaned.replaceAll('~~', '≈');
-
-    // "oo" or "co" in math context → ∞
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'(?<=[→=<>≤≥,(\s])\s*(?:oo|co)\s*(?=[)\s,]|$)'),
-      (m) => '∞',
-    );
-    // "-oo" → "-∞"
-    cleaned = cleaned.replaceAll(RegExp(r'-\s*oo\b'), '-∞');
-
-    // "pi" as standalone word → π
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'\bpi\b', caseSensitive: false),
-      (m) => 'π',
-    );
-
-    // "theta" → θ
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'\btheta\b', caseSensitive: false), (m) => 'θ',
-    );
-    // "alpha" → α
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'\balpha\b', caseSensitive: false), (m) => 'α',
-    );
-    // "beta" → β
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'\bbeta\b', caseSensitive: false), (m) => 'β',
-    );
-    // "gamma" → γ
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'\bgamma\b', caseSensitive: false), (m) => 'γ',
-    );
-    // "delta" → Δ (usually uppercase in math)
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'\bdelta\b', caseSensitive: false), (m) => 'Δ',
-    );
-    // "sigma" → σ (or Σ for summation, handled by context)
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'\bsigma\b', caseSensitive: false), (m) => 'σ',
-    );
-    // "omega" → ω
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'\bomega\b', caseSensitive: false), (m) => 'ω',
-    );
-    // "lambda" → λ
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'\blambda\b', caseSensitive: false), (m) => 'λ',
-    );
-    // "phi" → φ
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'\bphi\b', caseSensitive: false), (m) => 'φ',
-    );
-
-    // "sqrt" → √
-    cleaned = cleaned.replaceAll(RegExp(r'\bsqrt\b', caseSensitive: false), '√');
-
-    // "infinity" or "inf" → ∞
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'\b(?:infinity|inf)\b', caseSensitive: false), (m) => '∞',
-    );
-
-    // ═══════════════════════════════════════════════════
-    // 3. OCR MISREAD CORRECTIONS
-    // ═══════════════════════════════════════════════════
-
-    // --- Variable X vs multiplication × ---
-    // 'X' between digits or near operators → 'x' (variable)
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'(?<=[0-9+\-*/=(\s])X(?=[0-9+\-*/=²³⁴⁵⁶⁷⁸⁹ⁿ^)\s]|$)'),
-      (m) => 'x',
-    );
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'^X(?=[²³⁴⁵⁶⁷⁸⁹ⁿ^0-9+\-*/=\s])'),
-      (m) => 'x',
-    );
-
-    // --- Exponent misreads: single-letter variable followed by single digit → superscript ---
-    // ONLY for single variables followed by a single digit at word boundary (conservative)
-    final exponentMap = {'2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹'};
-    for (final entry in exponentMap.entries) {
-      // "x2" at end of expression or before operator (only single letter + single digit)
-      cleaned = cleaned.replaceAllMapped(
-        RegExp('(?<![a-zA-Z0-9])([a-zA-Z])${entry.key}(?=\\s*[+\\-×÷*/=)\\s]|\$)'),
-        (m) => '${m.group(1)}${entry.value}',
-      );
-    }
-
-    // --- Integral sign misreads ---
-    // Only at start of expression: 'S' or 'J' followed by integrand with "dx"/"dy"
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'^[SJ]\s*(?=\s*[a-zA-Z0-9(].*\bd[xyzt]\b)'),
-      (m) => '∫',
-    );
-
-    // --- Square root misreads ---
-    // Only 'V' directly before a parenthesized expression (not part of a word) → √
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'(?<![a-zA-Z])V(?=\s*\()'),
-      (m) => '√',
-    );
-
-    // --- Infinity misreads ---
-    // Standalone "8" that is clearly infinity (after lim, →, or comparison)
-    // but this is risky — skip unless in clear context
-    // "oc" or "0c" or "oO" → ∞ only in very clear context (after arrows/comparisons)
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'(?<=[→])(?:oc|oO|0C|OC)(?=[)\s,]|$)'),
-      (m) => '∞',
-    );
-
-    // ═══════════════════════════════════════════════════
-    // 4. DERIVATIVE / CALCULUS NOTATION FIXES
-    // ═══════════════════════════════════════════════════
-
-    // "d / dx" or "d/ dx" or "d /dx" → "d/dx"
-    cleaned = cleaned.replaceAll(RegExp(r'd\s*/\s*d\s*x'), 'd/dx');
-    cleaned = cleaned.replaceAll(RegExp(r'd\s*/\s*d\s*y'), 'd/dy');
-    cleaned = cleaned.replaceAll(RegExp(r'd\s*/\s*d\s*t'), 'd/dt');
-
-    // "dy / dx" → "dy/dx"
-    cleaned = cleaned.replaceAll(RegExp(r'd\s*y\s*/\s*d\s*x'), 'dy/dx');
-    cleaned = cleaned.replaceAll(RegExp(r'd\s*x\s*/\s*d\s*t'), 'dx/dt');
-
-    // Partial derivative: if "d" was misread — ∂ is likely already handled by Unicode
-    // "df/dx" could be partial: keep as is, AI will interpret
-
-    // "lim" formatting — preserve
-    // "lim x->0" or "lim x→0" — normalize arrows
-    cleaned = cleaned.replaceAll(RegExp(r'-\s*>'), '→');
-
-    // f'(x) — prime notation: various quote chars → '
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r"""([a-zA-Z])\s*[`\u00B4\u2018\u2019\u02BC]\s*(\()"""),
-      (m) => "${m.group(1)}'${m.group(2)}",
-    );
-    // f''(x) — double prime
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r"""([a-zA-Z])\s*[`\u00B4\u2018\u2019\u02BC]{2}\s*(\()"""),
-      (m) => "${m.group(1)}''${m.group(2)}",
-    );
-
-    // ═══════════════════════════════════════════════════
-    // 5. TRIG / LOG FUNCTION NAME FIXES
-    // ═══════════════════════════════════════════════════
-
-    // Common OCR misreads of function names
-    final funcFixes = {
-      'S1n': 'sin', 's1n': 'sin', 'SIN': 'sin', 'Sin': 'sin',
-      'C0S': 'cos', 'c0s': 'cos', 'COS': 'cos', 'Cos': 'cos',
-      'TAN': 'tan', 'Tan': 'tan',
-      'COT': 'cot', 'Cot': 'cot',
-      'SEC': 'sec', 'Sec': 'sec',
-      'CSC': 'csc', 'Csc': 'csc',
-      'LOG': 'log', 'Log': 'log', 'l0g': 'log', 'L0G': 'log', 'L0g': 'log',
-      'LN': 'ln', 'Ln': 'ln',
-      'LIM': 'lim', 'Lim': 'lim', 'L1M': 'lim', 'l1m': 'lim',
-      'ABS': 'abs', 'Abs': 'abs',
-    };
-    for (final entry in funcFixes.entries) {
-      cleaned = cleaned.replaceAll(
-        RegExp('\\b${RegExp.escape(entry.key)}\\b'),
-        entry.value,
-      );
-    }
-
-    // arcsin, arccos, arctan — OCR sometimes splits or misreads
-    cleaned = cleaned.replaceAll(RegExp(r'\barc\s*sin\b', caseSensitive: false), 'arcsin');
-    cleaned = cleaned.replaceAll(RegExp(r'\barc\s*cos\b', caseSensitive: false), 'arccos');
-    cleaned = cleaned.replaceAll(RegExp(r'\barc\s*tan\b', caseSensitive: false), 'arctan');
-
-    // ═══════════════════════════════════════════════════
-    // 5b. ADDITIONAL SAFE PATTERN FIXES
-    // ═══════════════════════════════════════════════════
-
-    // Fraction patterns: fix "l/2" → "1/2" (lowercase L misread as 1)
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'(?<![a-zA-Z])l(?=/\s*\d)'),
-      (m) => '1',
-    );
-
-    // "x X y" between numbers = multiplication (capital X between digits)
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'(\d)\s*X\s*(\d)'),
-      (m) => '${m.group(1)} × ${m.group(2)}',
-    );
-
-    // Fix "log base" notation: "log2(" → "log₂(", "log10(" → "log₁₀("
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'\blog(\d{1,2})(?=\s*\()'),
-      (m) {
-        final base = m.group(1)!;
-        final subDigits = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉'};
-        final sub = base.split('').map((d) => subDigits[d] ?? d).join();
-        return 'log$sub';
-      },
-    );
-
-    // Fix °/o → %
-    cleaned = cleaned.replaceAll('°/o', '%');
-    cleaned = cleaned.replaceAll('°/0', '%');
-
-    // ═══════════════════════════════════════════════════
-    // 6. SPACING NORMALIZATION
-    // ═══════════════════════════════════════════════════
-
-    // Proper spacing around binary operators
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'\s*([+\-×÷=≠≤≥≈<>])\s*'),
-      (m) => ' ${m.group(1)} ',
-    );
-
-    // No space between function name and parenthesis: "sin (" → "sin("
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'\b(sin|cos|tan|cot|sec|csc|arcsin|arccos|arctan|log|ln|lim|abs|sqrt)\s+\(', caseSensitive: false),
-      (m) => '${m.group(1)}(',
-    );
-
-    // Collapse multiple spaces, trim
+    // Collapse multiple spaces/newlines, trim
     cleaned = cleaned.replaceAll(RegExp(r'\s+'), ' ').trim();
 
-    // ═══════════════════════════════════════════════════
-    // 7. DIGIT/LETTER CONFUSION CLEANUP (conservative — only between digits)
-    // ═══════════════════════════════════════════════════
-
-    // 'O' or 'o' surrounded by digits → 0
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'(?<=\d)[Oo](?=\d)'),
-      (m) => '0',
-    );
-    // 'l' or 'I' surrounded by digits → 1
-    cleaned = cleaned.replaceAllMapped(
-      RegExp(r'(?<=\d)[lI](?=\d)'),
-      (m) => '1',
-    );
-
-    // ═══════════════════════════════════════════════════
-    // 8. BRACKET BALANCING
-    // ═══════════════════════════════════════════════════
-    cleaned = _balanceBrackets(cleaned);
-
-    // ═══════════════════════════════════════════════════
-    // 9. FINAL MATH VALIDATION PASS
-    // ═══════════════════════════════════════════════════
-    cleaned = _finalMathValidation(cleaned);
-
     return cleaned;
-  }
-
-  /// Balance unmatched brackets/parentheses
-  String _balanceBrackets(String text) {
-    int parenCount = 0;
-    int bracketCount = 0;
-    int braceCount = 0;
-    for (final ch in text.split('')) {
-      switch (ch) {
-        case '(': parenCount++; break;
-        case ')': parenCount--; break;
-        case '[': bracketCount++; break;
-        case ']': bracketCount--; break;
-        case '{': braceCount++; break;
-        case '}': braceCount--; break;
-      }
-    }
-    String result = text;
-    // Add missing closing brackets
-    while (parenCount > 0) { result += ')'; parenCount--; }
-    while (bracketCount > 0) { result += ']'; bracketCount--; }
-    while (braceCount > 0) { result += '}'; braceCount--; }
-    // Add missing opening brackets at start
-    while (parenCount < 0) { result = '($result'; parenCount++; }
-    while (bracketCount < 0) { result = '[$result'; bracketCount++; }
-    while (braceCount < 0) { result = '{$result'; braceCount++; }
-    return result;
-  }
-
-  /// Final cleanup: fix common leftover OCR artifacts
-  String _finalMathValidation(String text) {
-    String result = text;
-
-    // Fix doubled operators: "++", "×× " etc.
-    result = result.replaceAll(RegExp(r'\+\s*\+'), '+');
-    result = result.replaceAll(RegExp(r'×\s*×'), '×');
-    result = result.replaceAll(RegExp(r'÷\s*÷'), '÷');
-    result = result.replaceAll(RegExp(r'=\s*='), '=');
-
-    // Remove trailing operators (OCR noise): "+ " at end
-    result = result.replaceAll(RegExp(r'[+×÷*/]\s*$'), '').trim();
-
-    // Final space cleanup
-    result = result.replaceAll(RegExp(r'\s+'), ' ').trim();
-
-    return result;
   }
 
   void dispose() {
