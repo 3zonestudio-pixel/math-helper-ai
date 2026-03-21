@@ -117,6 +117,50 @@ class MathProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Solve multiple problems in sequence. Returns list of solved problems.
+  Future<List<MathProblem>> solveMultipleProblems({
+    required List<String> problems,
+    required String language,
+    required String difficulty,
+    required String explanationMode,
+    String category = 'general',
+  }) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    final results = <MathProblem>[];
+    try {
+      for (final problem in problems) {
+        final trimmed = problem.trim();
+        if (trimmed.isEmpty) continue;
+        try {
+          final result = await _aiService.solveProblem(
+            problem: trimmed,
+            language: language,
+            difficulty: difficulty,
+            explanationMode: explanationMode,
+            category: category,
+          );
+          results.add(result);
+          // Add to history immediately
+          _history.insert(0, result);
+          try {
+            await _dbService.insertProblem(result);
+          } catch (_) {}
+        } catch (_) {
+          // Skip failed problems, continue with rest
+        }
+        // Notify after each solve so UI can update progress
+        notifyListeners();
+      }
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+    return results;
+  }
+
   Future<List<MathProblem>> searchProblems(String query) async {
     try {
       return await _dbService.searchProblems(query);

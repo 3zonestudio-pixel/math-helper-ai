@@ -144,16 +144,20 @@ class AiService {
 
     const prompt = '''You are a math OCR correction engine. The following text was extracted from a photo of a math problem using basic text OCR. The OCR likely made errors — wrong characters, missing symbols, broken structure, misread letters as digits or vice versa.
 
-Your job: Reconstruct the INTENDED mathematical expression or problem from this garbled OCR text.
+Your job: Reconstruct the INTENDED mathematical expression(s) or problem(s) from this garbled OCR text.
 
 RULES:
-- Return ONLY the corrected math expression/problem, nothing else
+- Return ONLY the corrected math expression(s)/problem(s), nothing else
 - Use standard math notation: +, -, ×, ÷, =, ^, √, π, ∫, etc.
 - Use ^ for exponents (e.g. x^2), √ for square root
 - If it looks like an equation, include the = sign
-- If there are multiple lines/expressions, separate them with newlines
+- MULTIPLE PROBLEMS: If the text contains multiple math problems (e.g. an exam page), separate each problem on its own line, prefixed with its number like:
+  1) first problem
+  2) second problem
+  3) third problem
+- If problems are already numbered (Q1, #1, 1., 1), etc.), preserve the numbering
 - If the text contains words like "solve", "find", "evaluate", keep them
-- Do NOT explain or solve — just correct the expression
+- Do NOT explain or solve — just correct the expression(s)
 - If you truly cannot determine any math from the text, reply with just: ERROR''';
 
     for (int attempt = 0; attempt < 2; attempt++) {

@@ -7,6 +7,7 @@ import '../providers/app_provider.dart';
 import '../providers/math_provider.dart';
 import '../theme.dart';
 import 'solution_screen.dart';
+import 'multi_solution_screen.dart';
 
 class TextInputScreen extends StatefulWidget {
   final String? initialCategory;
@@ -334,13 +335,51 @@ class _TextInputScreenState extends State<TextInputScreen> {
     );
   }
 
+  /// Split input text into individual math problems.
+  /// Detects numbered lists, newline-separated expressions, etc.
+  static List<String> _splitProblems(String text) {
+    final lines = text.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+    if (lines.length <= 1) return [text.trim()];
+
+    // Check if lines are numbered (e.g. "1) ...", "1. ...", "Q1: ...", "#1 ...")
+    final numberedPattern = RegExp(r'^(?:Q?\.?\s*#?\s*\d+[.):\-]\s*|\(?\d+[).]\s*)', caseSensitive: false);
+    final hasNumbering = lines.where((l) => numberedPattern.hasMatch(l)).length >= 2;
+
+    if (hasNumbering) {
+      // Merge continuation lines (lines without numbering) into the previous problem
+      final problems = <String>[];
+      String current = '';
+      for (final line in lines) {
+        if (numberedPattern.hasMatch(line)) {
+          if (current.isNotEmpty) problems.add(current.trim());
+          // Strip the number prefix
+          current = line.replaceFirst(numberedPattern, '').trim();
+        } else {
+          current += ' $line';
+        }
+      }
+      if (current.isNotEmpty) problems.add(current.trim());
+      if (problems.length >= 2) return problems;
+    }
+
+    // If each line looks like a separate math expression, split by lines
+    final mathLinePattern = RegExp(r'[\d+\-×÷*/=^√∫xyzπ()\[\]]');
+    final mathLines = lines.where((l) => mathLinePattern.hasMatch(l)).toList();
+    if (mathLines.length >= 2 && mathLines.length == lines.length) {
+      return mathLines;
+    }
+
+    // Single problem
+    return [text.trim()];
+  }
+
   Future<void> _solve(
     BuildContext context,
     AppProvider appProvider,
     MathProvider mathProvider,
   ) async {
-    final problem = _controller.text.trim();
-    if (problem.isEmpty) {
+    final input = _controller.text.trim();
+    if (input.isEmpty) {
       setState(() => _showInputError = true);
       HapticFeedback.heavyImpact();
       Future.delayed(const Duration(seconds: 2), () {
@@ -351,36 +390,68 @@ class _TextInputScreenState extends State<TextInputScreen> {
 
     setState(() => _showInputError = false);
     HapticFeedback.lightImpact();
-
-    // Unfocus keyboard in parallel with solve — don't wait for animation
     FocusScope.of(context).unfocus();
 
-    final result = await mathProvider.solveProblem(
-      problem: problem,
-      language: _explainLanguage,
-      difficulty: appProvider.difficulty,
-      explanationMode: appProvider.explanationMode,
-      category: _selectedCategory,
-    );
+    final problems = _splitProblems(input);
 
-    if (result != null && mounted) {
-      if (!context.mounted) return;
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => SolutionScreen(problem: result),
-        ),
+    if (problems.length >= 2) {
+      // Multiple problems — solve all and show multi-solution screen
+      final results = await mathProvider.solveMultipleProblems(
+        problems: problems,
+        language: _explainLanguage,
+        difficulty: appProvider.difficulty,
+        explanationMode: appProvider.explanationMode,
+        category: _selectedCategory,
       );
-    } else if (result == null && mounted) {
-      if (!context.mounted) return;
-      final l10n = AppLocalizations.of(context)!;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(l10n.error),
-          backgroundColor: Colors.red[700],
-          behavior: SnackBarBehavior.floating,
-        ),
+
+      if (results.isNotEmpty && mounted) {
+        if (!context.mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MultiSolutionScreen(problems: results),
+          ),
+        );
+      } else if (mounted) {
+        if (!context.mounted) return;
+        final l10n = AppLocalizations.of(context)!;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.error),
+            backgroundColor: Colors.red[700],
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } else {
+      // Single problem — original flow
+      final result = await mathProvider.solveProblem(
+        problem: input,
+        language: _explainLanguage,
+        difficulty: appProvider.difficulty,
+        explanationMode: appProvider.explanationMode,
+        category: _selectedCategory,
       );
+
+      if (result != null && mounted) {
+        if (!context.mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SolutionScreen(problem: result),
+          ),
+        );
+      } else if (result == null && mounted) {
+        if (!context.mounted) return;
+        final l10n = AppLocalizations.of(context)!;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(l10n.error),
+            backgroundColor: Colors.red[700],
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 }
