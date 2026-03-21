@@ -30,7 +30,7 @@ class LogoWidget extends StatelessWidget {
       child: CustomPaint(
         painter: _LogoPainter(logoSize: size),
         child: Align(
-          alignment: const Alignment(0.42, -0.42),
+          alignment: const Alignment(0.48, -0.55),
           child: Text(
             '2',
             style: TextStyle(
@@ -57,7 +57,7 @@ class _LogoPainter extends CustomPainter {
   }
 
   void _drawCurvedX(Canvas canvas, Size size) {
-    final cx = size.width * 0.45;
+    final cx = size.width * 0.46;
     final cy = size.height * 0.52;
     final arm = size.width * 0.18;
     final strokeW = size.width * 0.055;

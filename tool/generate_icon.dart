@@ -211,7 +211,7 @@ void _drawX2Symbol(Uint8List pixels, int size) {
   final cy = size ~/ 2;
 
   // "x" — curved strokes with rounded ends for a cute/stylish look
-  final xCx = cx - 40;
+  final xCx = cx - 20;
   final xCy = cy + 15;
   const xHalf = 105;
   const xThick = 24.0;
@@ -235,8 +235,8 @@ void _drawX2Symbol(Uint8List pixels, int size) {
   );
 
   // "²" — clean bold superscript using thick filled segments
-  final twoOx = (xCx + xHalf + 55).toDouble();
-  final twoOy = (xCy - xHalf - 50).toDouble();
+  final twoOx = (xCx + xHalf + 45).toDouble();
+  final twoOy = (xCy - xHalf - 70).toDouble();
   const twoW = 80;
   const twoH = 100;
   const twoT = 20; // thick strokes for bold look
