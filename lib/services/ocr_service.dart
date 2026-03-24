@@ -6,10 +6,29 @@ import 'package:image/image.dart' as img;
 
 class OcrService {
   TextRecognizer? _textRecognizer;
+  TextRecognizer? _chineseRecognizer;
+  TextRecognizer? _devanagariRecognizer;
+  TextRecognizer? _japaneseRecognizer;
+  TextRecognizer? _koreanRecognizer;
 
   TextRecognizer get textRecognizer {
     _textRecognizer ??= TextRecognizer();
     return _textRecognizer!;
+  }
+
+  /// Get all recognizers for multi-script OCR
+  List<TextRecognizer> get _allRecognizers {
+    _chineseRecognizer ??= TextRecognizer(script: TextRecognitionScript.chinese);
+    _devanagariRecognizer ??= TextRecognizer(script: TextRecognitionScript.devanagiri);
+    _japaneseRecognizer ??= TextRecognizer(script: TextRecognitionScript.japanese);
+    _koreanRecognizer ??= TextRecognizer(script: TextRecognitionScript.korean);
+    return [
+      textRecognizer,        // Latin (en, fr, es, de, pt, tr, it, ru)
+      _chineseRecognizer!,   // zh
+      _devanagariRecognizer!, // hi
+      _japaneseRecognizer!,  // ja
+      _koreanRecognizer!,    // ko
+    ];
   }
 
   Future<String> recognizeText(String imagePath) async {
@@ -20,14 +39,21 @@ class OcrService {
       final fileSize = await file.length();
       if (fileSize > 20 * 1024 * 1024) return '';
 
-      // === MULTI-PASS OCR: try original, enhanced, and binarized ===
+      // === MULTI-SCRIPT + MULTI-PASS OCR ===
       final results = <String>[];
 
-      // Pass 1: Original image
-      final originalResult = await _recognizeSingle(imagePath);
-      if (originalResult.isNotEmpty) results.add(originalResult);
+      // Try all script recognizers on original image
+      final inputImage = InputImage.fromFilePath(imagePath);
+      for (final recognizer in _allRecognizers) {
+        try {
+          final recognized = await recognizer.processImage(inputImage);
+          if (recognized.text.isNotEmpty) {
+            results.add(_extractWithStructure(recognized));
+          }
+        } catch (_) {}
+      }
 
-      // Pass 2: Enhanced (grayscale + sharpen + contrast)
+      // Pass 2: Enhanced (grayscale + sharpen + contrast) — Latin only
       final enhancedPath = await _preprocessImage(imagePath, binarize: false);
       if (enhancedPath != null) {
         final enhancedResult = await _recognizeSingle(enhancedPath);
@@ -35,7 +61,7 @@ class OcrService {
         try { File(enhancedPath).deleteSync(); } catch (_) {}
       }
 
-      // Pass 3: Binarized (for low-contrast / faded math)
+      // Pass 3: Binarized (for low-contrast / faded math) — Latin only
       final binarizedPath = await _preprocessImage(imagePath, binarize: true);
       if (binarizedPath != null) {
         final binarizedResult = await _recognizeSingle(binarizedPath);
@@ -361,5 +387,9 @@ class OcrService {
 
   void dispose() {
     _textRecognizer?.close();
+    _chineseRecognizer?.close();
+    _devanagariRecognizer?.close();
+    _japaneseRecognizer?.close();
+    _koreanRecognizer?.close();
   }
 }
