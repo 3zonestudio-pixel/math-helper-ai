@@ -268,4 +268,13 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get autoDetect => '自動';
+
+  @override
+  String get edit => '編集';
+
+  @override
+  String get home => 'ホーム';
+
+  @override
+  String get notMathProblem => 'これは数学の問題ではないようです。数式または方程式を入力してください。';
 }

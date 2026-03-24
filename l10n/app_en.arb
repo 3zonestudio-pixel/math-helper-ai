@@ -87,5 +87,8 @@
   "deleteConfirmTitle": "Delete",
   "solutionLabel": "Solution",
   "explainIn": "Explain in",
-  "autoDetect": "Auto"
+  "autoDetect": "Auto",
+  "edit": "Edit",
+  "home": "Home",
+  "notMathProblem": "This doesn't appear to be a math problem. Please enter a mathematical expression or equation."
 }

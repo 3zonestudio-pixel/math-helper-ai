@@ -268,4 +268,13 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get autoDetect => '자동';
+
+  @override
+  String get edit => '편집';
+
+  @override
+  String get home => '홈';
+
+  @override
+  String get notMathProblem => '수학 문제가 아닌 것 같습니다. 수학 표현식이나 방정식을 입력해 주세요.';
 }

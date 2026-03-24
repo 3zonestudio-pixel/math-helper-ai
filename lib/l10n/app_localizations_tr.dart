@@ -270,4 +270,14 @@ class AppLocalizationsTr extends AppLocalizations {
 
   @override
   String get autoDetect => 'Otomatik';
+
+  @override
+  String get edit => 'Düzenle';
+
+  @override
+  String get home => 'Ana Sayfa';
+
+  @override
+  String get notMathProblem =>
+      'Bu bir matematik problemi gibi görünmüyor. Lütfen bir matematiksel ifade veya denklem girin.';
 }

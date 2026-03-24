@@ -129,6 +129,7 @@ class MathProvider extends ChangeNotifier {
     _error = null;
     notifyListeners();
 
+    final groupId = DateTime.now().millisecondsSinceEpoch.toString();
     final results = <MathProblem>[];
     try {
       for (final problem in problems) {
@@ -142,11 +143,24 @@ class MathProvider extends ChangeNotifier {
             explanationMode: explanationMode,
             category: category,
           );
-          results.add(result);
+          // Re-create with groupId
+          final grouped = MathProblem(
+            id: result.id,
+            problem: result.problem,
+            solution: result.solution,
+            steps: result.steps,
+            category: result.category,
+            difficulty: result.difficulty,
+            language: result.language,
+            createdAt: result.createdAt,
+            isFavorite: result.isFavorite,
+            groupId: groupId,
+          );
+          results.add(grouped);
           // Add to history immediately
-          _history.insert(0, result);
+          _history.insert(0, grouped);
           try {
-            await _dbService.insertProblem(result);
+            await _dbService.insertProblem(grouped);
           } catch (_) {}
         } catch (_) {
           // Skip failed problems, continue with rest

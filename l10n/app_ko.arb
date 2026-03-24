@@ -87,5 +87,8 @@
   "deleteConfirmTitle": "삭제",
   "solutionLabel": "풀이",
   "explainIn": "설명 언어",
-  "autoDetect": "자동"
+  "autoDetect": "자동",
+  "edit": "편집",
+  "home": "홈",
+  "notMathProblem": "수학 문제가 아닌 것 같습니다. 수학 표현식이나 방정식을 입력해 주세요."
 }

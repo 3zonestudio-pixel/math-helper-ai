@@ -270,4 +270,14 @@ class AppLocalizationsHi extends AppLocalizations {
 
   @override
   String get autoDetect => 'स्वतः';
+
+  @override
+  String get edit => 'संपादित करें';
+
+  @override
+  String get home => 'होम';
+
+  @override
+  String get notMathProblem =>
+      'यह गणित का सवाल नहीं लगता। कृपया एक गणितीय अभिव्यक्ति या समीकरण दर्ज करें।';
 }

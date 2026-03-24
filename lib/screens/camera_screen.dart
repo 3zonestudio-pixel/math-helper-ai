@@ -215,32 +215,34 @@ class _CameraScreenState extends State<CameraScreen> {
 
               const SizedBox(height: 20),
 
-              // Camera/Gallery buttons
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildActionButton(
-                      icon: Icons.camera_alt_rounded,
-                      label: l10n.camera,
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF6C5CE7), Color(0xFF8B5CF6)],
+              if (_recognizedText == null || _recognizedText!.isEmpty) ...[
+                // Camera/Gallery buttons — only before scan
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildActionButton(
+                        icon: Icons.camera_alt_rounded,
+                        label: l10n.camera,
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF6C5CE7), Color(0xFF8B5CF6)],
+                        ),
+                        onTap: () => _captureImage(ImageSource.camera),
                       ),
-                      onTap: () => _captureImage(ImageSource.camera),
                     ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: _buildActionButton(
-                      icon: Icons.photo_library_rounded,
-                      label: l10n.gallery,
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF00B4D8), Color(0xFF0096C7)],
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: _buildActionButton(
+                        icon: Icons.photo_library_rounded,
+                        label: l10n.gallery,
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF00B4D8), Color(0xFF0096C7)],
+                        ),
+                        onTap: () => _captureImage(ImageSource.gallery),
                       ),
-                      onTap: () => _captureImage(ImageSource.gallery),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
 
               if (_recognizedText != null && _recognizedText!.isNotEmpty) ...[
                 const SizedBox(height: 14),
@@ -329,7 +331,7 @@ class _CameraScreenState extends State<CameraScreen> {
                                       size: 18, color: AppTheme.accentPurple),
                                   const SizedBox(width: 8),
                                   Text(
-                                    l10n.typeProblem,
+                                    l10n.edit,
                                     style: TextStyle(
                                       fontSize: 14,
                                       fontWeight: FontWeight.w600,
@@ -597,12 +599,13 @@ class _CameraScreenState extends State<CameraScreen> {
 
     final appProvider = context.read<AppProvider>();
     final mathProvider = context.read<MathProvider>();
+    final solveLanguage = appProvider.language;
     final problems = _splitProblems(_recognizedText!);
 
     if (problems.length >= 2) {
       final results = await mathProvider.solveMultipleProblems(
         problems: problems,
-        language: appProvider.language,
+        language: solveLanguage,
         difficulty: appProvider.difficulty,
         explanationMode: appProvider.explanationMode,
       );
@@ -617,7 +620,7 @@ class _CameraScreenState extends State<CameraScreen> {
     } else {
       final result = await mathProvider.solveProblem(
         problem: _recognizedText!,
-        language: appProvider.language,
+        language: solveLanguage,
         difficulty: appProvider.difficulty,
         explanationMode: appProvider.explanationMode,
       );

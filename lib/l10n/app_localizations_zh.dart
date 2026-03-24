@@ -267,4 +267,13 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get autoDetect => '自动';
+
+  @override
+  String get edit => '编辑';
+
+  @override
+  String get home => '首页';
+
+  @override
+  String get notMathProblem => '这似乎不是数学问题。请输入数学表达式或方程。';
 }

@@ -269,4 +269,14 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get autoDetect => 'تلقائي';
+
+  @override
+  String get edit => 'تعديل';
+
+  @override
+  String get home => 'الرئيسية';
+
+  @override
+  String get notMathProblem =>
+      'لا يبدو أن هذا مسألة رياضية. يرجى إدخال تعبير أو معادلة رياضية.';
 }

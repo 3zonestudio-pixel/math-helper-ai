@@ -6,6 +6,7 @@ import '../models/math_problem.dart';
 import '../widgets/problem_card.dart';
 import '../theme.dart';
 import 'solution_screen.dart';
+import 'multi_solution_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   final bool showFavoritesOnly;
@@ -41,6 +42,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
         : items.where((p) =>
             p.problem.toLowerCase().contains(_searchQuery.toLowerCase()) ||
             p.solution.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+
+    // Group problems by groupId — ungrouped items stay individual
+    final displayItems = _buildDisplayItems(filtered);
 
     return Scaffold(
       appBar: AppBar(
@@ -112,9 +116,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   )
                 : ListView.builder(
                     padding: const EdgeInsets.only(top: 8, bottom: 80),
-                    itemCount: filtered.length,
+                    itemCount: displayItems.length,
                     itemBuilder: (context, index) {
-                      final problem = filtered[index];
+                      final item = displayItems[index];
+                      if (item is List<MathProblem>) {
+                        // Grouped scan — show as expandable card
+                        return _buildGroupCard(context, item, l10n, isDark, mathProvider);
+                      }
+                      final problem = item as MathProblem;
                       return Dismissible(
                         key: Key(problem.id),
                         direction: DismissDirection.endToStart,
@@ -184,6 +193,146 @@ class _HistoryScreenState extends State<HistoryScreen> {
         ],
       ),
     );
+  }
+
+  /// Build display items: group problems with same groupId together, keep singles as-is.
+  List<dynamic> _buildDisplayItems(List<MathProblem> problems) {
+    final items = <dynamic>[];
+    final seenGroups = <String>{};
+
+    for (final p in problems) {
+      if (p.groupId != null && p.groupId!.isNotEmpty) {
+        if (seenGroups.contains(p.groupId)) continue;
+        seenGroups.add(p.groupId!);
+        final group = problems.where((q) => q.groupId == p.groupId).toList();
+        items.add(group);
+      } else {
+        items.add(p);
+      }
+    }
+    return items;
+  }
+
+  Widget _buildGroupCard(
+    BuildContext context,
+    List<MathProblem> group,
+    AppLocalizations l10n,
+    bool isDark,
+    MathProvider mathProvider,
+  ) {
+    final first = group.first;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.cardDark : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: AppTheme.accentPurple.withAlpha(40),
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => MultiSolutionScreen(problems: group),
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        gradient: AppTheme.primaryGradient,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.auto_awesome, size: 12, color: Colors.white),
+                          const SizedBox(width: 4),
+                          Text(
+                            '${group.length} ${l10n.steps.toLowerCase()}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(
+                      _formatGroupDate(first.createdAt, l10n),
+                      style: TextStyle(
+                        color: isDark
+                            ? AppTheme.textLight.withAlpha(100)
+                            : Colors.grey[400],
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                ...group.take(3).map((p) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      Icon(Icons.circle, size: 6, color: AppTheme.accentPurple.withAlpha(150)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          p.problem,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: isDark ? Colors.white : AppTheme.textDark,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
+                if (group.length > 3)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      '+${group.length - 3} more',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppTheme.accentPurple,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatGroupDate(DateTime date, AppLocalizations l10n) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
+    if (diff.inMinutes < 1) return l10n.justNow;
+    if (diff.inHours < 1) return l10n.minutesAgo(diff.inMinutes);
+    if (diff.inDays < 1) return l10n.hoursAgo(diff.inHours);
+    if (diff.inDays < 7) return l10n.daysAgo(diff.inDays);
+    return '${date.day}/${date.month}/${date.year}';
   }
 
   void _viewSolution(BuildContext context, MathProblem problem) {

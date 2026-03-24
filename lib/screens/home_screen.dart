@@ -106,7 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
             BottomNavigationBarItem(
               icon: const Icon(Icons.home_rounded),
               activeIcon: _buildActiveNavIcon(Icons.home_rounded),
-              label: l10n.appTitle,
+              label: l10n.home,
             ),
             BottomNavigationBarItem(
               icon: const Icon(Icons.history_rounded),

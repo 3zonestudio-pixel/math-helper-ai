@@ -270,4 +270,14 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get autoDetect => 'Авто';
+
+  @override
+  String get edit => 'Редактировать';
+
+  @override
+  String get home => 'Главная';
+
+  @override
+  String get notMathProblem =>
+      'Это не похоже на математическую задачу. Пожалуйста, введите математическое выражение или уравнение.';
 }

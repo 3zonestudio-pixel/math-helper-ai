@@ -87,5 +87,8 @@
   "deleteConfirmTitle": "削除",
   "solutionLabel": "解答",
   "explainIn": "説明言語",
-  "autoDetect": "自動"
+  "autoDetect": "自動",
+  "edit": "編集",
+  "home": "ホーム",
+  "notMathProblem": "これは数学の問題ではないようです。数式または方程式を入力してください。"
 }

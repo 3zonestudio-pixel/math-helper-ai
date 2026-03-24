@@ -87,5 +87,8 @@
   "deleteConfirmTitle": "हटाएं",
   "solutionLabel": "हल",
   "explainIn": "इसमें समझाएं",
-  "autoDetect": "स्वतः"
+  "autoDetect": "स्वतः",
+  "edit": "संपादित करें",
+  "home": "होम",
+  "notMathProblem": "यह गणित का सवाल नहीं लगता। कृपया एक गणितीय अभिव्यक्ति या समीकरण दर्ज करें।"
 }

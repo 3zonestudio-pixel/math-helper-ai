@@ -87,5 +87,8 @@
   "deleteConfirmTitle": "删除",
   "solutionLabel": "解答",
   "explainIn": "用以下语言解释",
-  "autoDetect": "自动"
+  "autoDetect": "自动",
+  "edit": "编辑",
+  "home": "首页",
+  "notMathProblem": "这似乎不是数学问题。请输入数学表达式或方程。"
 }

@@ -87,5 +87,8 @@
   "deleteConfirmTitle": "حذف",
   "solutionLabel": "الحل",
   "explainIn": "اشرح بـ",
-  "autoDetect": "تلقائي"
+  "autoDetect": "تلقائي",
+  "edit": "تعديل",
+  "home": "الرئيسية",
+  "notMathProblem": "لا يبدو أن هذا مسألة رياضية. يرجى إدخال تعبير أو معادلة رياضية."
 }

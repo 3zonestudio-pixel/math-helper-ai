@@ -87,5 +87,8 @@
   "deleteConfirmTitle": "Sil",
   "solutionLabel": "Çözüm",
   "explainIn": "Açıklama dili",
-  "autoDetect": "Otomatik"
+  "autoDetect": "Otomatik",
+  "edit": "Düzenle",
+  "home": "Ana Sayfa",
+  "notMathProblem": "Bu bir matematik problemi gibi görünmüyor. Lütfen bir matematiksel ifade veya denklem girin."
 }

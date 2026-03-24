@@ -209,6 +209,24 @@ RULES:
 
   static bool get isConfigured => _apiKey.isNotEmpty;
 
+  /// Check if input text looks like a math problem
+  static bool _isMathLike(String text) {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return false;
+    // Must contain at least one digit or math-related word
+    final hasDigit = RegExp(r'\d').hasMatch(trimmed);
+    final hasMathSymbol = RegExp(r'[+\-*/=^√∫∑×÷±²³()π%]').hasMatch(trimmed);
+    final hasMathWord = RegExp(
+      r'\b(solve|find|calculate|compute|simplify|factor|derive|integrate|'
+      r'evaluate|equation|sqrt|root|log|sin|cos|tan|sum|area|volume|'
+      r'perimeter|angle|triangle|circle|square|matrix|vector|limit|'
+      r'probability|fraction|ratio|percent|average|mean|median|'
+      r'x|y|z|f\(|g\(|polynomial|quadratic|linear|cubic)\b',
+      caseSensitive: false,
+    ).hasMatch(trimmed);
+    return hasDigit || hasMathSymbol || hasMathWord;
+  }
+
   /// Generate a cache key from problem parameters
   String _cacheKey(String problem, String language, String difficulty, String category) {
     return '$problem|$language|$difficulty|$category';
@@ -230,6 +248,18 @@ RULES:
     // Normalize spelling errors in input
     final normalizedProblem = _normalizeSpelling(problem);
     final lowerProblem = normalizedProblem.toLowerCase().trim();
+
+    // Reject non-math input early
+    if (!_isMathLike(lowerProblem)) {
+      return MathProblem(
+        problem: problem,
+        solution: 'Not a math problem',
+        steps: [],
+        category: category,
+        difficulty: difficulty,
+        language: language,
+      );
+    }
 
     // Only use local solver instantly for basic arithmetic (always accurate)
     if (_isBasicArithmetic(lowerProblem)) {
@@ -284,7 +314,7 @@ RULES:
               {'role': 'user', 'content': normalizedProblem},
             ],
             'temperature': 0.1,
-            'max_tokens': 2048,
+            'max_tokens': 500,
           }),
         ).timeout(const Duration(seconds: 25));
 
@@ -350,7 +380,9 @@ RULES:
     final langName = langNames[language] ?? 'English';
     final detailLevel = mode == 'simple' ? 'brief and concise' : 'detailed and thorough';
 
-    return '''You are a math solver. Respond in $langName. Level: $difficulty. Be $detailLevel.
+    return '''You are a math solver. RESPOND ENTIRELY IN $langName. Level: $difficulty. Be $detailLevel.
+
+LANGUAGE RULE (CRITICAL): Your ENTIRE response — solution, every step title, every step description, every tip — MUST be written 100% in $langName. NEVER mix languages. Do NOT use English words or phrases when responding in another language. Translate ALL mathematical terminology into $langName.
 
 RULES:
 1. Input may be messy (OCR/typos). Reconstruct the intended problem first.
@@ -361,11 +393,11 @@ RULES:
 
 FORMAT:
 SOLUTION: [final answer]
-STEP 1: [title]
+STEP 1: [title in $langName]
 [computation]
-STEP 2: [title]
+STEP 2: [title in $langName]
 [computation]
-TIP: [insight]''';
+TIP: [insight in $langName]''';
   }
 
   MathProblem _parseAiResponse(

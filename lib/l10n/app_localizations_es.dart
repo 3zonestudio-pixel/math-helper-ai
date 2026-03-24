@@ -270,4 +270,14 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get autoDetect => 'Auto';
+
+  @override
+  String get edit => 'Editar';
+
+  @override
+  String get home => 'Inicio';
+
+  @override
+  String get notMathProblem =>
+      'Esto no parece ser un problema matemático. Por favor, ingresa una expresión o ecuación matemática.';
 }

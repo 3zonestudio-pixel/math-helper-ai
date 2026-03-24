@@ -623,6 +623,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Auto'**
   String get autoDetect;
+
+  /// No description provided for @edit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get edit;
+
+  /// No description provided for @home.
+  ///
+  /// In en, this message translates to:
+  /// **'Home'**
+  String get home;
+
+  /// No description provided for @notMathProblem.
+  ///
+  /// In en, this message translates to:
+  /// **'This doesn\'t appear to be a math problem. Please enter a mathematical expression or equation.'**
+  String get notMathProblem;
 }
 
 class _AppLocalizationsDelegate

@@ -12,6 +12,7 @@ class MathProblem {
   final String language;
   final DateTime createdAt;
   bool isFavorite;
+  final String? groupId;
 
   MathProblem({
     String? id,
@@ -23,6 +24,7 @@ class MathProblem {
     this.language = 'en',
     DateTime? createdAt,
     this.isFavorite = false,
+    this.groupId,
   })  : id = id ?? _uuid.v4(),
         createdAt = createdAt ?? DateTime.now();
 
@@ -37,6 +39,7 @@ class MathProblem {
       'language': language,
       'createdAt': createdAt.toIso8601String(),
       'isFavorite': isFavorite ? 1 : 0,
+      if (groupId != null) 'groupId': groupId,
     };
   }
 
@@ -73,6 +76,7 @@ class MathProblem {
       language: (map['language'] as String?) ?? 'en',
       createdAt: DateTime.tryParse(map['createdAt']?.toString() ?? '') ?? DateTime.now(),
       isFavorite: (map['isFavorite'] as int?) == 1,
+      groupId: map['groupId'] as String?,
     );
   }
 
