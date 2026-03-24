@@ -178,7 +178,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           FutureBuilder<int>(
             future: _getRemainingRequests(),
             builder: (context, snapshot) {
-              final remaining = snapshot.data ?? 1500;
+              final remaining = snapshot.hasError ? 0 : (snapshot.data ?? 1500);
               return Card(
                 child: ListTile(
                   leading: Icon(Icons.bolt, color: AppTheme.accentCyan),

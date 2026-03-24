@@ -324,6 +324,9 @@ RULES:
           if (choices == null || choices is! List || choices.isEmpty) {
             throw Exception('Invalid API response: missing choices');
           }
+          if (choices[0] is! Map) {
+            throw Exception('Invalid API response format');
+          }
           final message = choices[0]['message'];
           if (message == null || message['content'] == null) {
             throw Exception('Invalid API response: missing content');
@@ -1208,7 +1211,7 @@ TIP: [insight in $langName]''';
   };
 
   String _getLocalizedText(String key, String language) {
-    return _localizedTexts[language]?[key] ?? _localizedTexts['en']![key]!;
+    return _localizedTexts[language]?[key] ?? _localizedTexts['en']?[key] ?? key;
   }
 }
 
