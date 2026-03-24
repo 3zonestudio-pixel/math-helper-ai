@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../services/ocr_service.dart';
 import '../services/ai_service.dart';
+import '../providers/app_provider.dart';
+import '../providers/math_provider.dart';
 import '../theme.dart';
 import 'text_input_screen.dart';
+import 'solution_screen.dart';
+import 'multi_solution_screen.dart';
 
 /// Painter that draws rounded scan-style corner brackets
 class _ScanCornerPainter extends CustomPainter {
@@ -86,6 +91,7 @@ class _CameraScreenState extends State<CameraScreen> {
   final OcrService _ocrService = OcrService();
   final ImagePicker _picker = ImagePicker();
   bool _isProcessing = false;
+  bool _isSolving = false;
   String _processingStatus = '';
   String? _recognizedText;
   String? _errorMessage;
@@ -238,44 +244,106 @@ class _CameraScreenState extends State<CameraScreen> {
 
               if (_recognizedText != null && _recognizedText!.isNotEmpty) ...[
                 const SizedBox(height: 14),
-                Container(
-                  height: 56,
-                  decoration: BoxDecoration(
-                    gradient: AppTheme.primaryGradient,
-                    borderRadius: BorderRadius.circular(22),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppTheme.accentPurple.withAlpha(50),
-                        blurRadius: 16,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () => _solveRecognizedText(context),
-                      borderRadius: BorderRadius.circular(22),
-                      child: Center(
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(Icons.auto_awesome,
-                                size: 20, color: Colors.white),
-                            const SizedBox(width: 10),
-                            Text(
-                              l10n.solveThis,
-                              style: const TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                              ),
+                Row(
+                  children: [
+                    // Direct Solve button
+                    Expanded(
+                      flex: 3,
+                      child: Container(
+                        height: 56,
+                        decoration: BoxDecoration(
+                          gradient: _isSolving ? null : AppTheme.primaryGradient,
+                          color: _isSolving
+                              ? (isDark ? AppTheme.surfaceDark : Colors.grey[300])
+                              : null,
+                          borderRadius: BorderRadius.circular(22),
+                          boxShadow: _isSolving
+                              ? null
+                              : [
+                                  BoxShadow(
+                                    color: AppTheme.accentPurple.withAlpha(50),
+                                    blurRadius: 16,
+                                    offset: const Offset(0, 6),
+                                  ),
+                                ],
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: _isSolving ? null : () => _directSolve(context),
+                            borderRadius: BorderRadius.circular(22),
+                            child: Center(
+                              child: _isSolving
+                                  ? const SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2.5,
+                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                      ),
+                                    )
+                                  : Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(Icons.auto_awesome,
+                                            size: 20, color: Colors.white),
+                                        const SizedBox(width: 10),
+                                        Text(
+                                          l10n.solve,
+                                          style: const TextStyle(
+                                            fontSize: 17,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    // Edit button
+                    Expanded(
+                      flex: 2,
+                      child: Container(
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: isDark ? AppTheme.cardDark : Colors.white,
+                          borderRadius: BorderRadius.circular(22),
+                          border: Border.all(
+                            color: AppTheme.accentPurple.withAlpha(80),
+                          ),
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: _isSolving ? null : () => _editRecognizedText(context),
+                            borderRadius: BorderRadius.circular(22),
+                            child: Center(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.edit_rounded,
+                                      size: 18, color: AppTheme.accentPurple),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    l10n.typeProblem,
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.accentPurple,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
 
@@ -444,9 +512,9 @@ class _CameraScreenState extends State<CameraScreen> {
     try {
       final XFile? image = await _picker.pickImage(
         source: source,
-        maxWidth: 1920,
-        maxHeight: 1920,
-        imageQuality: 90,
+        maxWidth: 2560,
+        maxHeight: 2560,
+        imageQuality: 95,
       );
 
       if (image == null) {
@@ -494,7 +562,77 @@ class _CameraScreenState extends State<CameraScreen> {
     }
   }
 
-  void _solveRecognizedText(BuildContext context) {
+  /// Split input text into individual math problems (same logic as TextInputScreen).
+  static List<String> _splitProblems(String text) {
+    final lines = text.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
+    if (lines.length <= 1) return [text.trim()];
+    final numberedPattern = RegExp(r'^(?:Q?\.?\s*#?\s*\d+[.):\-]\s*|\(?\d+[).]\s*)', caseSensitive: false);
+    final hasNumbering = lines.where((l) => numberedPattern.hasMatch(l)).length >= 2;
+    if (hasNumbering) {
+      final problems = <String>[];
+      String current = '';
+      for (final line in lines) {
+        if (numberedPattern.hasMatch(line)) {
+          if (current.isNotEmpty) problems.add(current.trim());
+          current = line.replaceFirst(numberedPattern, '').trim();
+        } else {
+          current += ' $line';
+        }
+      }
+      if (current.isNotEmpty) problems.add(current.trim());
+      if (problems.length >= 2) return problems;
+    }
+    final mathLinePattern = RegExp(r'[\d+\-×÷*/=^√∫xyzπ()\[\]]');
+    final mathLines = lines.where((l) => mathLinePattern.hasMatch(l)).toList();
+    if (mathLines.length >= 2 && mathLines.length == lines.length) {
+      return mathLines;
+    }
+    return [text.trim()];
+  }
+
+  Future<void> _directSolve(BuildContext context) async {
+    if (_recognizedText == null || _recognizedText!.isEmpty) return;
+
+    setState(() => _isSolving = true);
+
+    final appProvider = context.read<AppProvider>();
+    final mathProvider = context.read<MathProvider>();
+    final problems = _splitProblems(_recognizedText!);
+
+    if (problems.length >= 2) {
+      final results = await mathProvider.solveMultipleProblems(
+        problems: problems,
+        language: appProvider.language,
+        difficulty: appProvider.difficulty,
+        explanationMode: appProvider.explanationMode,
+      );
+      if (!mounted) return;
+      setState(() => _isSolving = false);
+      if (results.isNotEmpty) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => MultiSolutionScreen(problems: results)),
+        );
+      }
+    } else {
+      final result = await mathProvider.solveProblem(
+        problem: _recognizedText!,
+        language: appProvider.language,
+        difficulty: appProvider.difficulty,
+        explanationMode: appProvider.explanationMode,
+      );
+      if (!mounted) return;
+      setState(() => _isSolving = false);
+      if (result != null) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => SolutionScreen(problem: result)),
+        );
+      }
+    }
+  }
+
+  void _editRecognizedText(BuildContext context) {
     if (_recognizedText == null || _recognizedText!.isEmpty) return;
 
     Navigator.pushReplacement(

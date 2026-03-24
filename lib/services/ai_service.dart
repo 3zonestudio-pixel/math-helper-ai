@@ -142,23 +142,27 @@ class AiService {
     if (!isConfigured) return null;
     if (!await _canMakeRequest()) return null;
 
-    const prompt = '''You are a math OCR correction engine. The following text was extracted from a photo of a math problem using basic text OCR. The OCR likely made errors — wrong characters, missing symbols, broken structure, misread letters as digits or vice versa.
+    const prompt = '''You are an expert math OCR correction engine. You receive garbled text extracted by a basic OCR from a photo of handwritten or printed math. The OCR makes MANY errors:
+- Confuses similar characters: 1/l/I, 0/O, 5/S, 2/Z, 8/B, 6/b, 9/g/q, x/×, +/t, =/-, (/C, )/J
+- Misses superscripts/subscripts: x2 usually means x², not x·2
+- Drops or adds symbols: missing =, extra spaces, broken fractions
+- Splits or merges numbers: "1 2" may be "12", "34" may be "3" and "4" separately
+- Misreads handwriting: confuses similar-looking characters
 
-Your job: Reconstruct the INTENDED mathematical expression(s) or problem(s) from this garbled OCR text.
+YOUR TASK: Reconstruct the EXACT intended math expression(s). Think carefully about what the student likely wrote.
 
 RULES:
-- Return ONLY the corrected math expression(s)/problem(s), nothing else
-- Use standard math notation: +, -, ×, ÷, =, ^, √, π, ∫, etc.
-- Use ^ for exponents (e.g. x^2), √ for square root
+- Return ONLY the corrected math expression(s), nothing else — no explanation
+- Use plain math notation: +, -, ×, ÷, =, ^, √, π, ∫
+- Use ^ for exponents: x^2 for x squared
 - If it looks like an equation, include the = sign
-- MULTIPLE PROBLEMS: If the text contains multiple math problems (e.g. an exam page), separate each problem on its own line, prefixed with its number like:
+- MULTIPLE PROBLEMS: separate each on its own line, numbered:
   1) first problem
   2) second problem
-  3) third problem
-- If problems are already numbered (Q1, #1, 1., 1), etc.), preserve the numbering
-- If the text contains words like "solve", "find", "evaluate", keep them
-- Do NOT explain or solve — just correct the expression(s)
-- If you truly cannot determine any math from the text, reply with just: ERROR''';
+- Preserve existing numbering (Q1, #1, 1., etc.)
+- Keep instruction words like "solve", "find", "evaluate", "simplify"
+- Do NOT solve — only correct the OCR errors
+- If truly unrecognizable, reply: ERROR''';
 
     for (int attempt = 0; attempt < 2; attempt++) {
       try {
@@ -179,7 +183,7 @@ RULES:
               'temperature': 0.0,
               'max_tokens': 256,
             }),
-          ).timeout(const Duration(seconds: 20));
+          ).timeout(const Duration(seconds: 12));
 
           if (response.statusCode == 200) {
             final data = jsonDecode(response.body);
@@ -280,9 +284,9 @@ RULES:
               {'role': 'user', 'content': normalizedProblem},
             ],
             'temperature': 0.1,
-            'max_tokens': 4096,
+            'max_tokens': 2048,
           }),
-        ).timeout(const Duration(seconds: 45));
+        ).timeout(const Duration(seconds: 25));
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
@@ -346,53 +350,22 @@ RULES:
     final langName = langNames[language] ?? 'English';
     final detailLevel = mode == 'simple' ? 'brief and concise' : 'detailed and thorough';
 
-    return '''You are a world-class mathematics professor and problem solver. Respond ENTIRELY in $langName. Level: $difficulty. Be $detailLevel.
+    return '''You are a math solver. Respond in $langName. Level: $difficulty. Be $detailLevel.
 
-CRITICAL RULES — You MUST follow these:
-1. MESSY/DISORDERED INPUT: The input may come from OCR (camera scan) or hasty typing. It may contain:
-   - Jumbled or out-of-order expressions (e.g. "= 3x solve 2 + for x" means "solve 2 + 3x = ? for x")
-   - OCR artifacts: wrong symbols, garbled characters, misread letters/digits
-   - Mixed notation styles, inconsistent spacing, missing operators
-   - Incomplete problems — infer the most likely complete problem
-   YOU MUST reconstruct the intended mathematical problem before solving. State what you interpreted.
+RULES:
+1. Input may be messy (OCR/typos). Reconstruct the intended problem first.
+2. Smart interpretation: "x2" = x squared, figure out word order, pick most likely reading.
+3. ACCURACY: Find ALL solutions. Verify by substitution.
+4. Show clear steps with WHAT and WHY.
+5. PLAIN TEXT only: +, -, *, /, =, ^, sqrt(), (a)/(b). No LaTeX commands. Unicode OK.
 
-2. SMART INTERPRETATION:
-   - "x2" or "x 2" likely means x² (x squared)
-   - "2x + 3 = 0 solve x" → solve the equation 2x + 3 = 0 for x
-   - Random word order → figure out the actual math question
-   - If multiple interpretations exist, pick the most common/likely one and mention alternatives
-   - Recognize ALL math domains: algebra, calculus, geometry, trigonometry, statistics, number theory, linear algebra, differential equations
-
-3. ACCURACY IS CRITICAL:
-   - ALWAYS provide the COMPLETE and CORRECT answer. Double-check your work.
-   - For equations, find ALL solutions (e.g. quadratic has 2 roots, not just 1)
-   - Show verification: substitute your answer back into the original equation to prove it’s correct
-   - If the problem is ambiguous, solve the most likely interpretation and briefly note the ambiguity
-
-4. STEP FORMAT:
-   - Show every step clearly so a student can follow along
-   - Each step should explain WHAT you’re doing and WHY
-   - Include the actual computation at each step
-   - For equations: show the equation transformation at each step
-
-5. NOTATION RULES (VERY IMPORTANT):
-   - Use PLAIN TEXT math notation only: +, -, *, /, =, ^, etc.
-   - Use ^ for exponents: x^2, not x² or \\(x^2\\)
-   - Use sqrt() for square root: sqrt(9) = 3
-   - Use fractions as: (a)/(b) or a/b
-   - NEVER use LaTeX commands: NO \$, NO \\frac, NO \\sqrt, NO \\(, NO \\), NO \\[, NO \\]
-   - NEVER wrap math in dollar signs \$ or any LaTeX delimiters
-   - Use Unicode symbols: ², ³, √, π, ±, ≠, ≤, ≥, ∫ when helpful
-
-RESPONSE FORMAT (follow exactly):
-SOLUTION: [complete final answer with ALL solutions]
+FORMAT:
+SOLUTION: [final answer]
 STEP 1: [title]
-[detailed description with computation]
+[computation]
 STEP 2: [title]
-[detailed description with computation]
-STEP 3: [title]
-[detailed description with computation]
-TIP: [helpful tip or insight about this type of problem]''';
+[computation]
+TIP: [insight]''';
   }
 
   MathProblem _parseAiResponse(

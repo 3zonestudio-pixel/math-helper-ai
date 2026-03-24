@@ -9,16 +9,24 @@ import '../widgets/step_card.dart';
 import '../widgets/math_text.dart';
 import '../theme.dart';
 
-class SolutionScreen extends StatelessWidget {
+class SolutionScreen extends StatefulWidget {
   final MathProblem problem;
 
   const SolutionScreen({super.key, required this.problem});
+
+  @override
+  State<SolutionScreen> createState() => _SolutionScreenState();
+}
+
+class _SolutionScreenState extends State<SolutionScreen> {
+  bool _showSteps = false;
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
     final mathProvider = context.watch<MathProvider>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final problem = widget.problem;
 
     return Scaffold(
       appBar: AppBar(
@@ -94,7 +102,7 @@ class SolutionScreen extends StatelessWidget {
 
             const SizedBox(height: 16),
 
-            // Answer badge
+            // Answer badge — prominent
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(18),
@@ -143,22 +151,62 @@ class SolutionScreen extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 26),
+            const SizedBox(height: 18),
 
-            // Steps header
-            Text(
-              l10n.steps,
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: isDark ? Colors.white : AppTheme.textDark,
-                letterSpacing: 0.2,
+            // Explain button — toggles steps visibility
+            Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => setState(() => _showSteps = !_showSteps),
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
+                  decoration: BoxDecoration(
+                    color: _showSteps
+                        ? AppTheme.accentPurple.withAlpha(18)
+                        : (isDark ? AppTheme.cardDark : Colors.grey[50]),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: _showSteps
+                          ? AppTheme.accentPurple.withAlpha(60)
+                          : (isDark ? Colors.white.withAlpha(10) : Colors.black.withAlpha(8)),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        _showSteps ? Icons.visibility_off_rounded : Icons.lightbulb_rounded,
+                        size: 20,
+                        color: AppTheme.accentPurple,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        _showSteps ? l10n.steps : l10n.explanation,
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.accentPurple,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Icon(
+                        _showSteps ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
+                        size: 22,
+                        color: AppTheme.accentPurple,
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
-            const SizedBox(height: 14),
 
-            // Steps
-            ...problem.steps.map((step) => StepCard(step: step)),
+            // Steps — shown only when expanded
+            if (_showSteps) ...[
+              const SizedBox(height: 14),
+              ...problem.steps.map((step) => StepCard(step: step)),
+            ],
 
             const SizedBox(height: 24),
 
@@ -251,6 +299,7 @@ class SolutionScreen extends StatelessWidget {
   }
 
   String _buildShareText(AppLocalizations l10n) {
+    final problem = widget.problem;
     final buffer = StringBuffer();
     buffer.writeln('📐 ${problem.problem}');
     buffer.writeln();
