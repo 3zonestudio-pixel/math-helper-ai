@@ -18,17 +18,33 @@ class OcrService {
 
   /// Get all recognizers for multi-script OCR
   List<TextRecognizer> get _allRecognizers {
-    _chineseRecognizer ??= TextRecognizer(script: TextRecognitionScript.chinese);
-    _devanagariRecognizer ??= TextRecognizer(script: TextRecognitionScript.devanagiri);
-    _japaneseRecognizer ??= TextRecognizer(script: TextRecognitionScript.japanese);
-    _koreanRecognizer ??= TextRecognizer(script: TextRecognitionScript.korean);
-    return [
-      textRecognizer,        // Latin (en, fr, es, de, pt, tr, it, ru)
-      _chineseRecognizer!,   // zh
-      _devanagariRecognizer!, // hi
-      _japaneseRecognizer!,  // ja
-      _koreanRecognizer!,    // ko
-    ];
+    final recognizers = <TextRecognizer>[];
+    recognizers.add(textRecognizer); // Latin (en, fr, es, de, pt, tr, it, ru)
+    try {
+      _chineseRecognizer ??= TextRecognizer(script: TextRecognitionScript.chinese);
+      if (_chineseRecognizer != null) recognizers.add(_chineseRecognizer!);
+    } catch (e) {
+      print('OCR: Chinese recognizer unavailable: $e');
+    }
+    try {
+      _devanagariRecognizer ??= TextRecognizer(script: TextRecognitionScript.devanagiri);
+      if (_devanagariRecognizer != null) recognizers.add(_devanagariRecognizer!);
+    } catch (e) {
+      print('OCR: Devanagari recognizer unavailable: $e');
+    }
+    try {
+      _japaneseRecognizer ??= TextRecognizer(script: TextRecognitionScript.japanese);
+      if (_japaneseRecognizer != null) recognizers.add(_japaneseRecognizer!);
+    } catch (e) {
+      print('OCR: Japanese recognizer unavailable: $e');
+    }
+    try {
+      _koreanRecognizer ??= TextRecognizer(script: TextRecognitionScript.korean);
+      if (_koreanRecognizer != null) recognizers.add(_koreanRecognizer!);
+    } catch (e) {
+      print('OCR: Korean recognizer unavailable: $e');
+    }
+    return recognizers;
   }
 
   Future<String> recognizeText(String imagePath) async {
@@ -43,14 +59,22 @@ class OcrService {
       final results = <String>[];
 
       // Try all script recognizers on original image
-      final inputImage = InputImage.fromFilePath(imagePath);
+      InputImage? inputImage;
+      try {
+        inputImage = InputImage.fromFilePath(imagePath);
+      } catch (e) {
+        print('OCR: Failed to create InputImage: $e');
+        return '';
+      }
       for (final recognizer in _allRecognizers) {
         try {
           final recognized = await recognizer.processImage(inputImage);
           if (recognized.text.isNotEmpty) {
             results.add(_extractWithStructure(recognized));
           }
-        } catch (_) {}
+        } catch (e) {
+          print('OCR: Recognizer failed: $e');
+        }
       }
 
       // Pass 2: Enhanced (grayscale + sharpen + contrast) — Latin only
@@ -58,7 +82,7 @@ class OcrService {
       if (enhancedPath != null) {
         final enhancedResult = await _recognizeSingle(enhancedPath);
         if (enhancedResult.isNotEmpty) results.add(enhancedResult);
-        try { File(enhancedPath).deleteSync(); } catch (_) {}
+        try { File(enhancedPath).deleteSync(); } catch (e) { print('OCR: Delete enhanced failed: $e'); }
       }
 
       // Pass 3: Binarized (for low-contrast / faded math) — Latin only
@@ -66,7 +90,7 @@ class OcrService {
       if (binarizedPath != null) {
         final binarizedResult = await _recognizeSingle(binarizedPath);
         if (binarizedResult.isNotEmpty) results.add(binarizedResult);
-        try { File(binarizedPath).deleteSync(); } catch (_) {}
+        try { File(binarizedPath).deleteSync(); } catch (e) { print('OCR: Delete binarized failed: $e'); }
       }
 
       if (results.isEmpty) return '';
@@ -83,7 +107,8 @@ class OcrService {
       }
 
       return _cleanMathText(best);
-    } catch (e) {
+    } catch (e, st) {
+      print('OCR: Unexpected error: $e\n$st');
       return '';
     }
   }

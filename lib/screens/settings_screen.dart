@@ -189,11 +189,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       color: isDark ? Colors.white : AppTheme.textDark,
                     ),
                   ),
-                  subtitle: Text(
-                    '$remaining / 1500 remaining today',
-                    style: TextStyle(
-                      color: remaining < 100 ? AppTheme.errorRed : (isDark ? AppTheme.textLight.withAlpha(153) : Colors.grey[600]),
-                    ),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$remaining / 1500 requests remaining today',
+                        style: TextStyle(
+                          color: remaining < 100 ? AppTheme.errorRed : (isDark ? AppTheme.textLight.withAlpha(153) : Colors.grey[600]),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Max tokens per request: 500',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? AppTheme.textLight.withAlpha(153) : Colors.grey[600],
+                        ),
+                      ),
+                    ],
                   ),
                   trailing: Container(
                     width: 48,
