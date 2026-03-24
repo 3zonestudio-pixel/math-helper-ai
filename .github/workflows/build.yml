@@ -1,6 +1,8 @@
 name: Build Android APK & AAB
 
 on:
+  push:
+    branches: [master]
   workflow_dispatch:
 
 jobs:
