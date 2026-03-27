@@ -1,65 +1,21 @@
 import 'dart:io';
-import 'dart:typed_data';
-import 'dart:math' as math;
-import 'package:flutter/foundation.dart' show compute;
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:image/image.dart' as img;
 
 class OcrService {
   TextRecognizer? _textRecognizer;
-  TextRecognizer? _chineseRecognizer;
-  TextRecognizer? _devanagariRecognizer;
-  TextRecognizer? _japaneseRecognizer;
-  TextRecognizer? _koreanRecognizer;
 
   TextRecognizer get textRecognizer {
     _textRecognizer ??= TextRecognizer();
     return _textRecognizer!;
   }
 
-  /// Get all recognizers for multi-script OCR
-  List<TextRecognizer> get _allRecognizers {
-    final recognizers = <TextRecognizer>[];
-    recognizers.add(textRecognizer); // Latin (en, fr, es, de, pt, tr, it, ru)
-    try {
-      _chineseRecognizer ??= TextRecognizer(script: TextRecognitionScript.chinese);
-      if (_chineseRecognizer != null) recognizers.add(_chineseRecognizer!);
-    } catch (e) {
-      print('OCR: Chinese recognizer unavailable: $e');
-    }
-    try {
-      _devanagariRecognizer ??= TextRecognizer(script: TextRecognitionScript.devanagiri);
-      if (_devanagariRecognizer != null) recognizers.add(_devanagariRecognizer!);
-    } catch (e) {
-      print('OCR: Devanagari recognizer unavailable: $e');
-    }
-    try {
-      _japaneseRecognizer ??= TextRecognizer(script: TextRecognitionScript.japanese);
-      if (_japaneseRecognizer != null) recognizers.add(_japaneseRecognizer!);
-    } catch (e) {
-      print('OCR: Japanese recognizer unavailable: $e');
-    }
-    try {
-      _koreanRecognizer ??= TextRecognizer(script: TextRecognitionScript.korean);
-      if (_koreanRecognizer != null) recognizers.add(_koreanRecognizer!);
-    } catch (e) {
-      print('OCR: Korean recognizer unavailable: $e');
-    }
-    return recognizers;
-  }
-
   Future<String> recognizeText(String imagePath) async {
     try {
-      // Validate file exists and size is reasonable (max 20MB)
       final file = File(imagePath);
       if (!file.existsSync()) return '';
       final fileSize = await file.length();
       if (fileSize > 10 * 1024 * 1024) return '';
 
-      // === MULTI-SCRIPT + MULTI-PASS OCR ===
-      final results = <String>[];
-
-      // Try all script recognizers on original image
       InputImage? inputImage;
       try {
         inputImage = InputImage.fromFilePath(imagePath);
@@ -67,109 +23,26 @@ class OcrService {
         print('OCR: Failed to create InputImage: $e');
         return '';
       }
-      for (final recognizer in _allRecognizers) {
-        try {
-          final recognized = await recognizer.processImage(inputImage);
-          if (recognized.text.isNotEmpty) {
-            results.add(_extractWithStructure(recognized));
-          }
-        } catch (e) {
-          print('OCR: Recognizer failed: $e');
+
+      // Single-pass Latin OCR (most stable, avoids native crashes from multi-script models)
+      try {
+        final recognized = await textRecognizer.processImage(inputImage);
+        if (recognized.text.isNotEmpty) {
+          return _cleanMathText(_extractWithStructure(recognized));
         }
+      } catch (e) {
+        print('OCR: Recognition failed: $e');
       }
 
-      // Pass 2: Enhanced (grayscale + sharpen + contrast) — Latin only
-      final enhancedPath = await _preprocessImage(imagePath, binarize: false);
-      if (enhancedPath != null) {
-        final enhancedResult = await _recognizeSingle(enhancedPath);
-        if (enhancedResult.isNotEmpty) results.add(enhancedResult);
-        try { File(enhancedPath).deleteSync(); } catch (e) { print('OCR: Delete enhanced failed: $e'); }
-      }
-
-      // Pass 3: Binarized (for low-contrast / faded math) — Latin only
-      final binarizedPath = await _preprocessImage(imagePath, binarize: true);
-      if (binarizedPath != null) {
-        final binarizedResult = await _recognizeSingle(binarizedPath);
-        if (binarizedResult.isNotEmpty) results.add(binarizedResult);
-        try { File(binarizedPath).deleteSync(); } catch (e) { print('OCR: Delete binarized failed: $e'); }
-      }
-
-      if (results.isEmpty) return '';
-
-      // Pick the result with the highest math score
-      String best = results.first;
-      int bestScore = _mathScore(best);
-      for (int i = 1; i < results.length; i++) {
-        final score = _mathScore(results[i]);
-        if (score > bestScore) {
-          bestScore = score;
-          best = results[i];
-        }
-      }
-
-      return _cleanMathText(best);
+      return '';
     } catch (e, st) {
       print('OCR: Unexpected error: $e\n$st');
       return '';
     }
   }
 
-  /// Run OCR on a single image path, returning structural text
-  Future<String> _recognizeSingle(String path) async {
-    try {
-      final inputImage = InputImage.fromFilePath(path);
-      final recognizedText = await textRecognizer.processImage(inputImage);
-      if (recognizedText.text.isEmpty) return '';
-      return _extractWithStructure(recognizedText);
-    } catch (_) {
-      return '';
-    }
-  }
-
-  /// Score how "math-like" text is (higher = more math symbols/patterns)
-  int _mathScore(String text) {
-    if (text.isEmpty) return 0;
-    int score = 0;
-    const mathChars = '0123456789+-×÷*/=()[]{}xyzπ∫√∂∞²³⁴⁵⁶⁷⁸⁹≤≥≠≈αβγδθσΣΔΩ°±';
-    for (final ch in text.split('')) {
-      if (mathChars.contains(ch)) score += 2;
-    }
-    // Bonus for known math patterns
-    if (RegExp(r'[a-zA-Z]\s*[²³⁴⁵⁶⁷⁸⁹^]').hasMatch(text)) score += 10;
-    if (RegExp(r'\d\s*[+\-×÷*/]\s*\d').hasMatch(text)) score += 5;
-    if (text.contains('=')) score += 5;
-    if (RegExp(r'(?:sin|cos|tan|log|ln|lim|∫|√|d/d)', caseSensitive: false).hasMatch(text)) score += 15;
-    // Bonus for fraction patterns: a/b
-    if (RegExp(r'\d+\s*/\s*\d+').hasMatch(text)) score += 8;
-    // Bonus for equation pattern: expression = expression
-    if (RegExp(r'.+\s*=\s*.+').hasMatch(text)) score += 10;
-    // Bonus for parenthesized expressions
-    final parenCount = RegExp(r'[()]').allMatches(text).length;
-    score += parenCount * 2;
-    // Bonus for variable-operator-variable pattern
-    if (RegExp(r'[a-zA-Z]\s*[+\-×÷*/^]\s*[a-zA-Z0-9]').hasMatch(text)) score += 8;
-    // Penalize excessive non-math text (long English sentences)
-    final wordCount = RegExp(r'[a-zA-Z]{4,}').allMatches(text).length;
-    score -= wordCount * 3;
-    return score;
-  }
-
   Future<String> recognizeTextFromFile(File file) async {
     return recognizeText(file.path);
-  }
-
-  /// Preprocess image: grayscale + contrast + sharpen + optional binarize
-  /// Runs heavy image processing in a background isolate to avoid UI jank.
-  Future<String?> _preprocessImage(String imagePath, {bool binarize = false}) async {
-    try {
-      return await compute(
-        preprocessImageIsolate,
-        {'imagePath': imagePath, 'binarize': binarize},
-      );
-    } catch (e) {
-      print('OCR: Preprocess failed: $e');
-      return null;
-    }
   }
 
   /// Use ML Kit's structural data (blocks → lines → elements) to detect
@@ -367,58 +240,5 @@ class OcrService {
 
   void dispose() {
     _textRecognizer?.close();
-    _chineseRecognizer?.close();
-    _devanagariRecognizer?.close();
-    _japaneseRecognizer?.close();
-    _koreanRecognizer?.close();
-  }
-}
-
-/// Top-level function for compute() isolate — uses Map for isolate-safe serialization
-Future<String?> preprocessImageIsolate(Map<String, dynamic> params) async {
-  try {
-    final imagePath = params['imagePath'] as String;
-    final binarize = params['binarize'] as bool;
-    final file = File(imagePath);
-    final bytes = await file.readAsBytes();
-    var image = img.decodeImage(Uint8List.fromList(bytes));
-    if (image == null) return null;
-
-    if (image.width > 3000 || image.height > 3000) {
-      final scale = 3000 / math.max(image.width, image.height);
-      image = img.copyResize(image,
-          width: (image.width * scale).round(),
-          height: (image.height * scale).round(),
-          interpolation: img.Interpolation.linear);
-    }
-
-    image = img.grayscale(image);
-    image = img.convolution(image, filter: [0, -1, 0, -1, 5, -1, 0, -1, 0]);
-    image = img.adjustColor(image, contrast: binarize ? 1.8 : 1.3);
-    image = img.normalize(image, min: 0, max: 255);
-
-    if (binarize) {
-      for (int y = 0; y < image.height; y++) {
-        for (int x = 0; x < image.width; x++) {
-          final pixel = image.getPixel(x, y);
-          final lum = img.getLuminance(pixel);
-          if (lum > 128) {
-            image.setPixelRgb(x, y, 255, 255, 255);
-          } else {
-            image.setPixelRgb(x, y, 0, 0, 0);
-          }
-        }
-      }
-    }
-
-    final dir = file.parent.path;
-    final suffix = binarize ? 'binarized' : 'enhanced';
-    final outPath = '$dir/ocr_$suffix.png';
-    final outFile = File(outPath);
-    await outFile.writeAsBytes(img.encodePng(image));
-    return outPath;
-  } catch (e) {
-    print('OCR isolate: Preprocess failed: $e');
-    return null;
   }
 }
