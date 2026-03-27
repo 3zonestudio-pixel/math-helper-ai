@@ -550,34 +550,39 @@ class _CameraScreenState extends State<CameraScreen> {
         return;
       }
 
-      // Phase 1: ML Kit text extraction
+      // Phase 1: Try AI vision (sends image directly — most accurate)
       if (mounted) {
+        setState(() => _processingStatus = 'Reading image...');
+      }
+      String? recognizedResult = await AiService.reconstructMathFromImage(image.path);
+
+      // Phase 2: Fallback to ML Kit OCR + AI reconstruction if vision unavailable
+      if (recognizedResult == null || recognizedResult.isEmpty) {
+        if (!mounted) return;
         setState(() => _processingStatus = 'Scanning text...');
+        final rawText = await _ocrService.recognizeText(image.path);
+
+        if (!mounted) return;
+
+        if (rawText.isEmpty) {
+          setState(() {
+            _isProcessing = false;
+            _processingStatus = '';
+            _errorMessage = AppLocalizations.of(context)?.noTextRecognized ??
+                'No text recognized. Please try again.';
+          });
+          return;
+        }
+
+        setState(() => _processingStatus = 'Interpreting math...');
+        recognizedResult = await AiService.reconstructMathFromOcr(rawText) ?? rawText;
       }
-      final rawText = await _ocrService.recognizeText(image.path);
-
-      if (!mounted) return;
-
-      if (rawText.isEmpty) {
-        setState(() {
-          _isProcessing = false;
-          _processingStatus = '';
-          _errorMessage = AppLocalizations.of(context)?.noTextRecognized ??
-              'No text recognized. Please try again.';
-        });
-        return;
-      }
-
-      // Phase 2: AI-powered math reconstruction
-      setState(() => _processingStatus = 'Interpreting math...');
-      final aiReconstructed = await AiService.reconstructMathFromOcr(rawText);
 
       if (!mounted) return;
       setState(() {
         _isProcessing = false;
         _processingStatus = '';
-        // Use AI-reconstructed text if available, otherwise fall back to raw OCR
-        _recognizedText = aiReconstructed ?? rawText;
+        _recognizedText = recognizedResult;
       });
     } catch (e) {
       if (!mounted) return;

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -207,6 +208,92 @@ RULES:
       }
     }
     return null; // AI reconstruction failed — caller uses raw OCR text
+  }
+
+  /// Send image directly to AI vision model for accurate transcription.
+  /// This bypasses ML Kit OCR entirely — the AI sees the actual image.
+  static Future<String?> reconstructMathFromImage(String imagePath) async {
+    if (!isConfigured) return null;
+    if (!await _canMakeRequest()) return null;
+
+    try {
+      final file = File(imagePath);
+      if (!file.existsSync()) return null;
+      final fileSize = await file.length();
+      if (fileSize > 10 * 1024 * 1024) return null;
+
+      final bytes = await file.readAsBytes();
+      final base64Image = base64Encode(bytes);
+
+      // Detect mime type from extension
+      final ext = imagePath.toLowerCase().split('.').last;
+      final mime = ext == 'png' ? 'image/png' : 'image/jpeg';
+
+      const prompt = '''You are a precise document transcription engine. Look at this image and transcribe EXACTLY what you see — every question, every answer option, every number, every symbol.
+
+RULES:
+- Transcribe ALL text exactly as written on the paper
+- Keep ALL numbering (1, 2, 3... or Q1, Q2...)
+- Keep ALL answer choices (a, b, c, d) with their values
+- Keep section headers and instructions
+- Use plain math notation: +, -, ×, ÷, =, ^, √, π, fractions as a/b
+- Use ^ for exponents: x^2
+- Do NOT solve anything — only transcribe
+- Do NOT skip, merge, or reorder any content
+- Do NOT add explanations
+- If you cannot read something, write [unclear] in that spot''';
+
+      final client = http.Client();
+      try {
+        final response = await client.post(
+          Uri.parse(_apiUrl),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $_apiKey',
+          },
+          body: jsonEncode({
+            'model': _model,
+            'messages': [
+              {'role': 'system', 'content': prompt},
+              {
+                'role': 'user',
+                'content': [
+                  {
+                    'type': 'image_url',
+                    'image_url': {
+                      'url': 'data:$mime;base64,$base64Image',
+                    },
+                  },
+                  {
+                    'type': 'text',
+                    'text': 'Transcribe everything in this image exactly.',
+                  },
+                ],
+              },
+            ],
+            'temperature': 0.0,
+            'max_tokens': 1000,
+          }),
+        ).timeout(const Duration(seconds: 25));
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final choices = data['choices'];
+          if (choices != null && choices is List && choices.isNotEmpty) {
+            final content = (choices[0]['message']?['content'] as String?)?.trim();
+            if (content != null && content.isNotEmpty && content != 'ERROR') {
+              await _recordRequest();
+              return content;
+            }
+          }
+        }
+      } finally {
+        client.close();
+      }
+    } catch (e) {
+      print('AI Vision: Failed: $e');
+    }
+    return null;
   }
 
   static bool get isConfigured => _apiKey.isNotEmpty;
