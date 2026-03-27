@@ -3,8 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
-import '../services/ocr_service.dart';
-import '../services/ai_service.dart';
+import '../services/math_ocr_service.dart';
 import '../constants.dart';
 import '../providers/app_provider.dart';
 import '../providers/math_provider.dart';
@@ -89,7 +88,7 @@ class CameraScreen extends StatefulWidget {
 }
 
 class _CameraScreenState extends State<CameraScreen> {
-  final OcrService _ocrService = OcrService();
+  final MathOcrService _mathOcr = MathOcrService();
   final ImagePicker _picker = ImagePicker();
   bool _isProcessing = false;
   bool _isSolving = false;
@@ -122,7 +121,7 @@ class _CameraScreenState extends State<CameraScreen> {
 
   @override
   void dispose() {
-    _ocrService.dispose();
+    _mathOcr.dispose();
     super.dispose();
   }
 
@@ -550,39 +549,29 @@ class _CameraScreenState extends State<CameraScreen> {
         return;
       }
 
-      // Phase 1: Try AI vision (sends image directly — most accurate)
+      // Math-specialized OCR: ML Kit → math corrections → AI reconstruction
       if (mounted) {
-        setState(() => _processingStatus = 'Reading image...');
+        setState(() => _processingStatus = 'Scanning math...');
       }
-      String? recognizedResult = await AiService.reconstructMathFromImage(image.path);
+      final result = await _mathOcr.recognizeMath(image.path);
 
-      // Phase 2: Fallback to ML Kit OCR + AI reconstruction if vision unavailable
-      if (recognizedResult == null || recognizedResult.isEmpty) {
-        if (!mounted) return;
-        setState(() => _processingStatus = 'Scanning text...');
-        final rawText = await _ocrService.recognizeText(image.path);
+      if (!mounted) return;
 
-        if (!mounted) return;
-
-        if (rawText.isEmpty) {
-          setState(() {
-            _isProcessing = false;
-            _processingStatus = '';
-            _errorMessage = AppLocalizations.of(context)?.noTextRecognized ??
-                'No text recognized. Please try again.';
-          });
-          return;
-        }
-
-        setState(() => _processingStatus = 'Interpreting math...');
-        recognizedResult = await AiService.reconstructMathFromOcr(rawText) ?? rawText;
+      if (result.isEmpty) {
+        setState(() {
+          _isProcessing = false;
+          _processingStatus = '';
+          _errorMessage = AppLocalizations.of(context)?.noTextRecognized ??
+              'No text recognized. Please try again.';
+        });
+        return;
       }
 
       if (!mounted) return;
       setState(() {
         _isProcessing = false;
         _processingStatus = '';
-        _recognizedText = recognizedResult;
+        _recognizedText = result;
       });
     } catch (e) {
       if (!mounted) return;

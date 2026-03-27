@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -146,10 +145,18 @@ class AiService {
 
     const prompt = '''You are an expert math OCR correction engine. You receive garbled text extracted by a basic OCR from a photo of handwritten or printed math. The OCR makes MANY errors:
 - Confuses similar characters: 1/l/I, 0/O, 5/S, 2/Z, 8/B, 6/b, 9/g/q, x/×, +/t, =/-, (/C, )/J
-- Misses superscripts/subscripts: x2 usually means x², not x·2
+- Misses superscripts/subscripts: x^2 usually means x², not x·2
 - Drops or adds symbols: missing =, extra spaces, broken fractions
 - Splits or merges numbers: "1 2" may be "12", "34" may be "3" and "4" separately
 - Misreads handwriting: confuses similar-looking characters
+
+EXAMPLES of OCR input → correct output:
+• "5o|ve 2x + 3 = 7" → "Solve 2x + 3 = 7"
+• "x^2 + 3x - 4 = O" → "x^2 + 3x - 4 = 0"
+• "f(x) = 2x^3 - 5x^2 + l" → "f(x) = 2x^3 - 5x^2 + 1"
+• "Ca1culate 15 ÷ 3 + 2 x 4" → "Calculate 15 ÷ 3 + 2 × 4"
+• "1. 3x + 2 = 8\n2. x^2 - 9 = O" → "1. 3x + 2 = 8\n2. x^2 - 9 = 0"
+• "Choose the correct answer:\na) l2  b) 15  c) l8  d) 2l" → "Choose the correct answer:\na) 12  b) 15  c) 18  d) 21"
 
 YOUR TASK: Reconstruct the EXACT intended math expression(s) or questions. Think carefully about what the student likely wrote.
 
@@ -184,9 +191,9 @@ RULES:
                 {'role': 'user', 'content': rawOcrText},
               ],
               'temperature': 0.0,
-              'max_tokens': 500,
+              'max_tokens': 800,
             }),
-          ).timeout(const Duration(seconds: 12));
+          ).timeout(const Duration(seconds: 15));
 
           if (response.statusCode == 200) {
             final data = jsonDecode(response.body);
@@ -208,92 +215,6 @@ RULES:
       }
     }
     return null; // AI reconstruction failed — caller uses raw OCR text
-  }
-
-  /// Send image directly to AI vision model for accurate transcription.
-  /// This bypasses ML Kit OCR entirely — the AI sees the actual image.
-  static Future<String?> reconstructMathFromImage(String imagePath) async {
-    if (!isConfigured) return null;
-    if (!await _canMakeRequest()) return null;
-
-    try {
-      final file = File(imagePath);
-      if (!file.existsSync()) return null;
-      final fileSize = await file.length();
-      if (fileSize > 10 * 1024 * 1024) return null;
-
-      final bytes = await file.readAsBytes();
-      final base64Image = base64Encode(bytes);
-
-      // Detect mime type from extension
-      final ext = imagePath.toLowerCase().split('.').last;
-      final mime = ext == 'png' ? 'image/png' : 'image/jpeg';
-
-      const prompt = '''You are a precise document transcription engine. Look at this image and transcribe EXACTLY what you see — every question, every answer option, every number, every symbol.
-
-RULES:
-- Transcribe ALL text exactly as written on the paper
-- Keep ALL numbering (1, 2, 3... or Q1, Q2...)
-- Keep ALL answer choices (a, b, c, d) with their values
-- Keep section headers and instructions
-- Use plain math notation: +, -, ×, ÷, =, ^, √, π, fractions as a/b
-- Use ^ for exponents: x^2
-- Do NOT solve anything — only transcribe
-- Do NOT skip, merge, or reorder any content
-- Do NOT add explanations
-- If you cannot read something, write [unclear] in that spot''';
-
-      final client = http.Client();
-      try {
-        final response = await client.post(
-          Uri.parse(_apiUrl),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $_apiKey',
-          },
-          body: jsonEncode({
-            'model': _model,
-            'messages': [
-              {'role': 'system', 'content': prompt},
-              {
-                'role': 'user',
-                'content': [
-                  {
-                    'type': 'image_url',
-                    'image_url': {
-                      'url': 'data:$mime;base64,$base64Image',
-                    },
-                  },
-                  {
-                    'type': 'text',
-                    'text': 'Transcribe everything in this image exactly.',
-                  },
-                ],
-              },
-            ],
-            'temperature': 0.0,
-            'max_tokens': 1000,
-          }),
-        ).timeout(const Duration(seconds: 25));
-
-        if (response.statusCode == 200) {
-          final data = jsonDecode(response.body);
-          final choices = data['choices'];
-          if (choices != null && choices is List && choices.isNotEmpty) {
-            final content = (choices[0]['message']?['content'] as String?)?.trim();
-            if (content != null && content.isNotEmpty && content != 'ERROR') {
-              await _recordRequest();
-              return content;
-            }
-          }
-        }
-      } finally {
-        client.close();
-      }
-    } catch (e) {
-      print('AI Vision: Failed: $e');
-    }
-    return null;
   }
 
   static bool get isConfigured => _apiKey.isNotEmpty;

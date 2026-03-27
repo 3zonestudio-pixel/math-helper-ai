@@ -230,10 +230,10 @@ class OcrService {
     }
 
     // ═══════════════════════════════════════════════════
-    // 2. MINIMAL SPACING NORMALIZATION
+    // 2. SPACING NORMALIZATION (preserve line structure)
     // ═══════════════════════════════════════════════════
-    // Collapse multiple spaces/newlines, trim
-    cleaned = cleaned.replaceAll(RegExp(r'\s+'), ' ').trim();
+    // Collapse multiple spaces on same line, but preserve newlines
+    cleaned = cleaned.split('\n').map((line) => line.replaceAll(RegExp(r'  +'), ' ').trim()).where((line) => line.isNotEmpty).join('\n');
 
     return cleaned;
   }
