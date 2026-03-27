@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:uuid/uuid.dart';
 
 const _uuid = Uuid();
@@ -49,15 +50,30 @@ class MathProblem {
       try {
         final stepsStr = map['steps'] as String;
         if (stepsStr.isNotEmpty) {
-          final stepParts = stepsStr.split('|||');
-          for (int i = 0; i < stepParts.length; i++) {
-            final parts = stepParts[i].split('::');
-            if (parts.length >= 2) {
+          // Try JSON format first (new format)
+          if (stepsStr.startsWith('[')) {
+            final List<dynamic> jsonSteps = jsonDecode(stepsStr);
+            for (int i = 0; i < jsonSteps.length; i++) {
+              final j = jsonSteps[i] as Map<String, dynamic>;
               parsedSteps.add(SolutionStep(
-                stepNumber: i + 1,
-                title: parts[0].trim(),
-                description: parts.sublist(1).join('::').trim(),
+                stepNumber: j['stepNumber'] as int? ?? i + 1,
+                title: (j['title'] as String?) ?? '',
+                description: (j['description'] as String?) ?? '',
+                tip: j['tip'] as String?,
               ));
+            }
+          } else {
+            // Fallback: legacy delimiter format
+            final stepParts = stepsStr.split('|||');
+            for (int i = 0; i < stepParts.length; i++) {
+              final parts = stepParts[i].split('::');
+              if (parts.length >= 2) {
+                parsedSteps.add(SolutionStep(
+                  stepNumber: i + 1,
+                  title: parts[0].trim(),
+                  description: parts.sublist(1).join('::').trim(),
+                ));
+              }
             }
           }
         }
@@ -81,7 +97,7 @@ class MathProblem {
   }
 
   String stepsToString() {
-    return steps.map((s) => '${s.title}::${s.description}').join('|||');
+    return jsonEncode(steps.map((s) => s.toJson()).toList());
   }
 }
 

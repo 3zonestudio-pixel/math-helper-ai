@@ -7,16 +7,23 @@ class AppProvider extends ChangeNotifier {
   String _difficulty = AppConstants.intermediate;
   String _explanationMode = AppConstants.detailedMode;
   bool _isDarkMode = true;
+  bool _isReady = false;
 
   String get language => _language;
   String get difficulty => _difficulty;
   String get explanationMode => _explanationMode;
   bool get isDarkMode => _isDarkMode;
+  bool get isReady => _isReady;
 
   bool get isRtl => AppConstants.rtlLanguages.contains(_language);
 
-  AppProvider() {
-    _loadPreferences();
+  AppProvider._();
+
+  static Future<AppProvider> create() async {
+    final provider = AppProvider._();
+    await provider._loadPreferences();
+    provider._isReady = true;
+    return provider;
   }
 
   /// Detect language from device locale, matching supported languages.

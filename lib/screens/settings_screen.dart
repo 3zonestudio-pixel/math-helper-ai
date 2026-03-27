@@ -178,7 +178,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           FutureBuilder<int>(
             future: _getRemainingRequests(),
             builder: (context, snapshot) {
-              final remaining = snapshot.hasError ? 0 : (snapshot.data ?? 1500);
+              final remaining = snapshot.hasError ? 0 : (snapshot.data ?? 500);
               return Card(
                 child: ListTile(
                   leading: Icon(Icons.bolt, color: AppTheme.accentCyan),
@@ -193,7 +193,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '$remaining / 1500 requests remaining today',
+                        '$remaining / 500 remaining today',
                         style: TextStyle(
                           color: remaining < 100 ? AppTheme.errorRed : (isDark ? AppTheme.textLight.withAlpha(153) : Colors.grey[600]),
                         ),

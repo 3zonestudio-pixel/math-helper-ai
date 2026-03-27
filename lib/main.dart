@@ -11,17 +11,19 @@ import 'theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await DatabaseService.init();
-  runApp(const MathHelperApp());
+  final appProvider = await AppProvider.create();
+  runApp(MathHelperApp(appProvider: appProvider));
 }
 
 class MathHelperApp extends StatelessWidget {
-  const MathHelperApp({super.key});
+  final AppProvider appProvider;
+  const MathHelperApp({super.key, required this.appProvider});
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AppProvider()),
+        ChangeNotifierProvider.value(value: appProvider),
         ChangeNotifierProvider(create: (_) => MathProvider()),
       ],
       child: Consumer<AppProvider>(

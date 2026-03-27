@@ -74,8 +74,8 @@ class MathText extends StatelessWidget {
       );
       // Validate by building — Math.tex may defer errors
       return widget;
-    } catch (_) {
-      // pass
+    } catch (e) {
+      print('LaTeX render failed: $e');
     }
 
     // Fallback: render as plain text

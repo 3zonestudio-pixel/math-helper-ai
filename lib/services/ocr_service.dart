@@ -54,7 +54,7 @@ class OcrService {
       final file = File(imagePath);
       if (!file.existsSync()) return '';
       final fileSize = await file.length();
-      if (fileSize > 20 * 1024 * 1024) return '';
+      if (fileSize > 10 * 1024 * 1024) return '';
 
       // === MULTI-SCRIPT + MULTI-PASS OCR ===
       final results = <String>[];
@@ -164,7 +164,7 @@ class OcrService {
     try {
       return await compute(
         preprocessImageIsolate,
-        PreprocessParams(imagePath, binarize),
+        {'imagePath': imagePath, 'binarize': binarize},
       );
     } catch (e) {
       print('OCR: Preprocess failed: $e');
@@ -374,17 +374,12 @@ class OcrService {
   }
 }
 
-/// Parameters for isolate-based image preprocessing
-class PreprocessParams {
-  final String imagePath;
-  final bool binarize;
-  PreprocessParams(this.imagePath, this.binarize);
-}
-
-/// Top-level function for compute() isolate — must be public for isolate access
-Future<String?> preprocessImageIsolate(PreprocessParams params) async {
+/// Top-level function for compute() isolate — uses Map for isolate-safe serialization
+Future<String?> preprocessImageIsolate(Map<String, dynamic> params) async {
   try {
-    final file = File(params.imagePath);
+    final imagePath = params['imagePath'] as String;
+    final binarize = params['binarize'] as bool;
+    final file = File(imagePath);
     final bytes = await file.readAsBytes();
     var image = img.decodeImage(Uint8List.fromList(bytes));
     if (image == null) return null;
@@ -399,10 +394,10 @@ Future<String?> preprocessImageIsolate(PreprocessParams params) async {
 
     image = img.grayscale(image);
     image = img.convolution(image, filter: [0, -1, 0, -1, 5, -1, 0, -1, 0]);
-    image = img.adjustColor(image, contrast: params.binarize ? 1.8 : 1.3);
+    image = img.adjustColor(image, contrast: binarize ? 1.8 : 1.3);
     image = img.normalize(image, min: 0, max: 255);
 
-    if (params.binarize) {
+    if (binarize) {
       for (int y = 0; y < image.height; y++) {
         for (int x = 0; x < image.width; x++) {
           final pixel = image.getPixel(x, y);
@@ -417,7 +412,7 @@ Future<String?> preprocessImageIsolate(PreprocessParams params) async {
     }
 
     final dir = file.parent.path;
-    final suffix = params.binarize ? 'binarized' : 'enhanced';
+    final suffix = binarize ? 'binarized' : 'enhanced';
     final outPath = '$dir/ocr_$suffix.png';
     final outFile = File(outPath);
     await outFile.writeAsBytes(img.encodePng(image));

@@ -1,27 +1,27 @@
+import 'dart:async';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/math_problem.dart';
 
 class DatabaseService {
   static const String _boxName = 'problems';
   static bool _initialized = false;
-  static bool _initializing = false;
+  static Completer<void>? _initCompleter;
 
   static Future<void> init() async {
     if (_initialized) return;
-    if (_initializing) {
-      // Wait for the other init call to finish
-      while (_initializing) {
-        await Future.delayed(const Duration(milliseconds: 50));
-      }
-      return;
+    if (_initCompleter != null) {
+      return _initCompleter!.future;
     }
-    _initializing = true;
+    _initCompleter = Completer<void>();
     try {
       await Hive.initFlutter();
       await Hive.openBox<Map>(_boxName);
       _initialized = true;
-    } finally {
-      _initializing = false;
+      _initCompleter!.complete();
+    } catch (e) {
+      _initCompleter!.completeError(e);
+      _initCompleter = null;
+      rethrow;
     }
   }
 

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/math_problem.dart';
 import '../services/database_service.dart';
@@ -96,6 +97,8 @@ class MathProvider extends ChangeNotifier {
     }
   }
 
+  Timer? _favoriteDebounce;
+
   Future<void> toggleFavorite(MathProblem problem) async {
     problem.isFavorite = !problem.isFavorite;
     // Update local lists immediately
@@ -105,11 +108,18 @@ class MathProvider extends ChangeNotifier {
       _favorites.removeWhere((p) => p.id == problem.id);
     }
     notifyListeners();
-    try {
-      await _dbService.toggleFavorite(problem.id, problem.isFavorite);
-    } catch (e) {
-      print('DB: Failed to toggle favorite: $e');
-    }
+
+    // Debounce DB write to prevent race on rapid double-tap
+    final targetId = problem.id;
+    final targetFav = problem.isFavorite;
+    _favoriteDebounce?.cancel();
+    _favoriteDebounce = Timer(const Duration(milliseconds: 300), () async {
+      try {
+        await _dbService.toggleFavorite(targetId, targetFav);
+      } catch (e) {
+        print('DB: Failed to toggle favorite: $e');
+      }
+    });
   }
 
   Future<void> deleteProblem(String id) async {

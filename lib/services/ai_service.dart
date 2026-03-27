@@ -81,8 +81,8 @@ class AiService {
   static const int _maxCacheSize = 200;
   static final Map<String, MathProblem> _cache = {};
 
-  // Rate limiting: 1500 AI requests per day
-  static const int _dailyLimit = 1500;
+  // Rate limiting: 500 AI requests per day
+  static const int _dailyLimit = 500;
   static const String _rateLimitCountKey = 'ai_rate_limit_count';
   static const String _rateLimitDateKey = 'ai_rate_limit_date';
 
@@ -679,17 +679,20 @@ TIP: [insight in $langName]''';
     }
   }
 
+  static const int _maxParserDepth = 100;
+
   /// Recursive descent parser for arithmetic with parentheses
   /// Handles +, -, *, / and () with correct precedence
-  _ParseResult _evalExpression(String expr, int pos) {
-    var result = _evalTerm(expr, pos);
+  _ParseResult _evalExpression(String expr, int pos, [int depth = 0]) {
+    if (depth > _maxParserDepth) throw Exception('Expression too complex');
+    var result = _evalTerm(expr, pos, depth);
     var value = result.value;
     var i = result.pos;
 
     while (i < expr.length && (expr[i] == '+' || expr[i] == '-')) {
       final op = expr[i];
       i++;
-      final next = _evalTerm(expr, i);
+      final next = _evalTerm(expr, i, depth);
       if (op == '+') {
         value += next.value;
       } else {
@@ -701,15 +704,15 @@ TIP: [insight in $langName]''';
     return _ParseResult(value, i);
   }
 
-  _ParseResult _evalTerm(String expr, int pos) {
-    var result = _evalFactor(expr, pos);
+  _ParseResult _evalTerm(String expr, int pos, [int depth = 0]) {
+    var result = _evalFactor(expr, pos, depth);
     var value = result.value;
     var i = result.pos;
 
     while (i < expr.length && (expr[i] == '*' || expr[i] == '/')) {
       final op = expr[i];
       i++;
-      final next = _evalFactor(expr, i);
+      final next = _evalFactor(expr, i, depth);
       if (op == '*') {
         value *= next.value;
       } else {
@@ -722,15 +725,16 @@ TIP: [insight in $langName]''';
     return _ParseResult(value, i);
   }
 
-  _ParseResult _evalFactor(String expr, int pos) {
+  _ParseResult _evalFactor(String expr, int pos, [int depth = 0]) {
+    if (depth > _maxParserDepth) throw Exception('Expression too complex');
     // Handle negative numbers
     if (pos < expr.length && expr[pos] == '-') {
-      final result = _evalFactor(expr, pos + 1);
+      final result = _evalFactor(expr, pos + 1, depth + 1);
       return _ParseResult(-result.value, result.pos);
     }
 
     if (pos < expr.length && expr[pos] == '(') {
-      final result = _evalExpression(expr, pos + 1);
+      final result = _evalExpression(expr, pos + 1, depth + 1);
       // Skip closing paren
       final endPos = result.pos < expr.length && expr[result.pos] == ')'
           ? result.pos + 1

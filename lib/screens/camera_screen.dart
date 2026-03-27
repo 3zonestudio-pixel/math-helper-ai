@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../services/ocr_service.dart';
 import '../services/ai_service.dart';
+import '../constants.dart';
 import '../providers/app_provider.dart';
 import '../providers/math_provider.dart';
 import '../theme.dart';
@@ -95,6 +96,29 @@ class _CameraScreenState extends State<CameraScreen> {
   String _processingStatus = '';
   String? _recognizedText;
   String? _errorMessage;
+  String _explainLanguage = 'en';
+
+  @override
+  void initState() {
+    super.initState();
+    _explainLanguage = _detectDeviceLanguage();
+  }
+
+  static String _detectDeviceLanguage() {
+    try {
+      final locales = WidgetsBinding.instance.platformDispatcher.locales;
+      if (locales.isEmpty) return 'en';
+      for (final locale in locales) {
+        final code = locale.languageCode.toLowerCase();
+        if (AppConstants.supportedLanguages.containsKey(code)) {
+          return code;
+        }
+      }
+      return 'en';
+    } catch (_) {
+      return 'en';
+    }
+  }
 
   @override
   void dispose() {
@@ -246,6 +270,8 @@ class _CameraScreenState extends State<CameraScreen> {
 
               if (_recognizedText != null && _recognizedText!.isNotEmpty) ...[
                 const SizedBox(height: 14),
+                _buildLanguageSelector(l10n, isDark),
+                const SizedBox(height: 10),
                 Row(
                   children: [
                     // Direct Solve button
@@ -599,7 +625,7 @@ class _CameraScreenState extends State<CameraScreen> {
 
     final appProvider = context.read<AppProvider>();
     final mathProvider = context.read<MathProvider>();
-    final solveLanguage = appProvider.language;
+    final solveLanguage = _explainLanguage;
     final problems = _splitProblems(_recognizedText!);
 
     if (problems.length >= 2) {
@@ -612,10 +638,13 @@ class _CameraScreenState extends State<CameraScreen> {
       if (!mounted) return;
       setState(() => _isSolving = false);
       if (results.isNotEmpty) {
+        if (!context.mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => MultiSolutionScreen(problems: results)),
         );
+      } else {
+        _showSolveError(context, mathProvider);
       }
     } else {
       final result = await mathProvider.solveProblem(
@@ -627,12 +656,89 @@ class _CameraScreenState extends State<CameraScreen> {
       if (!mounted) return;
       setState(() => _isSolving = false);
       if (result != null) {
+        if (!context.mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => SolutionScreen(problem: result)),
         );
+      } else {
+        _showSolveError(context, mathProvider);
       }
     }
+  }
+
+  Widget _buildLanguageSelector(AppLocalizations l10n, bool isDark) {
+    final languages = AppConstants.supportedLanguages;
+    return Row(
+      children: [
+        Icon(
+          Icons.translate,
+          size: 18,
+          color: isDark ? AppTheme.accentCyan : AppTheme.accentPurple,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          l10n.explainIn,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: isDark ? AppTheme.textLight : AppTheme.textDark,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: SizedBox(
+            height: 36,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              children: languages.entries.map((entry) {
+                final isSelected = _explainLanguage == entry.key;
+                return Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: ChoiceChip(
+                    label: Text(entry.value),
+                    selected: isSelected,
+                    selectedColor: AppTheme.accentPurple,
+                    backgroundColor: isDark ? AppTheme.cardDark : Colors.grey[100],
+                    labelStyle: TextStyle(
+                      color: isSelected
+                          ? Colors.white
+                          : (isDark ? AppTheme.textLight : AppTheme.textDark),
+                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                      fontSize: 12,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    side: BorderSide(
+                      color: isSelected
+                          ? AppTheme.accentPurple
+                          : (isDark ? Colors.white.withAlpha(13) : Colors.black.withAlpha(10)),
+                    ),
+                    onSelected: (_) {
+                      setState(() => _explainLanguage = entry.key);
+                    },
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showSolveError(BuildContext context, MathProvider mathProvider) {
+    if (!context.mounted) return;
+    final l10n = AppLocalizations.of(context)!;
+    final msg = mathProvider.error ?? l10n.error;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: Colors.red[700],
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   void _editRecognizedText(BuildContext context) {

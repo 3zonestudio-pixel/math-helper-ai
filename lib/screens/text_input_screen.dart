@@ -373,6 +373,18 @@ class _TextInputScreenState extends State<TextInputScreen> {
     return [text.trim()];
   }
 
+  void _showErrorSnackBar(BuildContext context, MathProvider mathProvider) {
+    final l10n = AppLocalizations.of(context)!;
+    final msg = mathProvider.error ?? l10n.error;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: Colors.red[700],
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   Future<void> _solve(
     BuildContext context,
     AppProvider appProvider,
@@ -414,14 +426,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
         );
       } else if (mounted) {
         if (!context.mounted) return;
-        final l10n = AppLocalizations.of(context)!;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.error),
-            backgroundColor: Colors.red[700],
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        _showErrorSnackBar(context, mathProvider);
       }
     } else {
       // Single problem — original flow
@@ -443,14 +448,7 @@ class _TextInputScreenState extends State<TextInputScreen> {
         );
       } else if (result == null && mounted) {
         if (!context.mounted) return;
-        final l10n = AppLocalizations.of(context)!;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(l10n.error),
-            backgroundColor: Colors.red[700],
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        _showErrorSnackBar(context, mathProvider);
       }
     }
   }
