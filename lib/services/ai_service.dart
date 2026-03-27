@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'package:http/http.dart' as http;
@@ -15,7 +16,7 @@ const _p5 = 'ut37';
 final _arithmeticChars = RegExp(r'^[\d+\-*/().\s]+$');
 final _hasDigit = RegExp(r'\d');
 final _hasOp = RegExp(r'[+\-*/]');
-final _stepHeader = RegExp(r'^STEP\s*\d+:\s*');
+final _stepHeader = RegExp(r'^STEP\s*\d+:\s*', caseSensitive: false);
 
 // Common math spelling corrections (misspelling → correct)
 const _spellingFixes = <String, String>{
@@ -213,18 +214,21 @@ RULES:
   static bool _isMathLike(String text) {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return false;
-    // Must contain at least one digit or math-related word
-    final hasDigit = RegExp(r'\d').hasMatch(trimmed);
     final hasMathSymbol = RegExp(r'[+\-*/=^√∫∑×÷±²³()π%]').hasMatch(trimmed);
     final hasMathWord = RegExp(
       r'\b(solve|find|calculate|compute|simplify|factor|derive|integrate|'
       r'evaluate|equation|sqrt|root|log|sin|cos|tan|sum|area|volume|'
       r'perimeter|angle|triangle|circle|square|matrix|vector|limit|'
       r'probability|fraction|ratio|percent|average|mean|median|'
-      r'x|y|z|f\(|g\(|polynomial|quadratic|linear|cubic)\b',
+      r'f\(|g\(|polynomial|quadratic|linear|cubic)\b',
       caseSensitive: false,
     ).hasMatch(trimmed);
-    return hasDigit || hasMathSymbol || hasMathWord;
+    // Require math symbol OR math word; a bare digit alone is not enough
+    // Digit + operator pattern (e.g. "2+3", "5*x")
+    final hasDigitWithOp = RegExp(r'\d\s*[+\-*/^=×÷]|[+\-*/^=×÷]\s*\d').hasMatch(trimmed);
+    // Single variable letters only count if near math context
+    final hasMathVar = RegExp(r'\b[xyz]\s*[+\-*/^=²³]|[+\-*/^=]\s*[xyz]\b', caseSensitive: false).hasMatch(trimmed);
+    return hasMathSymbol || hasMathWord || hasDigitWithOp || hasMathVar;
   }
 
   /// Generate a cache key from problem parameters
@@ -339,8 +343,11 @@ RULES:
         }
         // Non-200: retry once
         if (attempt == 0) continue;
-      } catch (_) {
-        // Retry once on any error
+      } on TimeoutException {
+        print('AI: Request timed out (attempt ${attempt + 1})');
+        if (attempt == 0) continue;
+      } catch (e) {
+        print('AI: Error (attempt ${attempt + 1}): $e');
         if (attempt == 0) continue;
       }
     }

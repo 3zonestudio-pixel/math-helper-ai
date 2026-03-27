@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show compute;
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image/image.dart' as img;
 
@@ -158,62 +159,16 @@ class OcrService {
   }
 
   /// Preprocess image: grayscale + contrast + sharpen + optional binarize
+  /// Runs heavy image processing in a background isolate to avoid UI jank.
   Future<String?> _preprocessImage(String imagePath, {bool binarize = false}) async {
     try {
-      final file = File(imagePath);
-      final bytes = await file.readAsBytes();
-      var image = img.decodeImage(Uint8List.fromList(bytes));
-      if (image == null) return null;
-
-      // Downscale very large images to prevent memory issues
-      if (image.width > 3000 || image.height > 3000) {
-        final scale = 3000 / math.max(image.width, image.height);
-        image = img.copyResize(image,
-            width: (image.width * scale).round(),
-            height: (image.height * scale).round(),
-            interpolation: img.Interpolation.linear);
-      }
-
-      // Convert to grayscale
-      image = img.grayscale(image);
-
-      // Sharpen to make math symbols crisper
-      image = img.convolution(image, filter: [
-        0, -1, 0,
-        -1, 5, -1,
-        0, -1, 0,
-      ]);
-
-      // Adjust contrast for clearer symbol edges (gentle to preserve thin strokes)
-      image = img.adjustColor(image, contrast: binarize ? 1.8 : 1.3);
-
-      // Normalize brightness
-      image = img.normalize(image, min: 0, max: 255);
-
-      if (binarize) {
-        // Simple global threshold: pixel > 128 → white, else → black
-        for (int y = 0; y < image.height; y++) {
-          for (int x = 0; x < image.width; x++) {
-            final pixel = image.getPixel(x, y);
-            final lum = img.getLuminance(pixel);
-            if (lum > 128) {
-              image.setPixelRgb(x, y, 255, 255, 255);
-            } else {
-              image.setPixelRgb(x, y, 0, 0, 0);
-            }
-          }
-        }
-      }
-
-      // Save preprocessed image to temp path
-      final dir = file.parent.path;
-      final suffix = binarize ? 'binarized' : 'enhanced';
-      final outPath = '$dir/ocr_$suffix.png';
-      final outFile = File(outPath);
-      await outFile.writeAsBytes(img.encodePng(image));
-      return outPath;
-    } catch (_) {
-      return null; // Fall back to original image
+      return await compute(
+        _preprocessImageIsolate,
+        _PreprocessParams(imagePath, binarize),
+      );
+    } catch (e) {
+      print('OCR: Preprocess failed: $e');
+      return null;
     }
   }
 
@@ -416,5 +371,59 @@ class OcrService {
     _devanagariRecognizer?.close();
     _japaneseRecognizer?.close();
     _koreanRecognizer?.close();
+  }
+}
+
+/// Parameters for isolate-based image preprocessing
+class _PreprocessParams {
+  final String imagePath;
+  final bool binarize;
+  _PreprocessParams(this.imagePath, this.binarize);
+}
+
+/// Top-level function for compute() isolate — must be top-level or static
+Future<String?> _preprocessImageIsolate(_PreprocessParams params) async {
+  try {
+    final file = File(params.imagePath);
+    final bytes = await file.readAsBytes();
+    var image = img.decodeImage(Uint8List.fromList(bytes));
+    if (image == null) return null;
+
+    if (image.width > 3000 || image.height > 3000) {
+      final scale = 3000 / math.max(image.width, image.height);
+      image = img.copyResize(image,
+          width: (image.width * scale).round(),
+          height: (image.height * scale).round(),
+          interpolation: img.Interpolation.linear);
+    }
+
+    image = img.grayscale(image);
+    image = img.convolution(image, filter: [0, -1, 0, -1, 5, -1, 0, -1, 0]);
+    image = img.adjustColor(image, contrast: params.binarize ? 1.8 : 1.3);
+    image = img.normalize(image, min: 0, max: 255);
+
+    if (params.binarize) {
+      for (int y = 0; y < image.height; y++) {
+        for (int x = 0; x < image.width; x++) {
+          final pixel = image.getPixel(x, y);
+          final lum = img.getLuminance(pixel);
+          if (lum > 128) {
+            image.setPixelRgb(x, y, 255, 255, 255);
+          } else {
+            image.setPixelRgb(x, y, 0, 0, 0);
+          }
+        }
+      }
+    }
+
+    final dir = file.parent.path;
+    final suffix = params.binarize ? 'binarized' : 'enhanced';
+    final outPath = '$dir/ocr_$suffix.png';
+    final outFile = File(outPath);
+    await outFile.writeAsBytes(img.encodePng(image));
+    return outPath;
+  } catch (e) {
+    print('OCR isolate: Preprocess failed: $e');
+    return null;
   }
 }

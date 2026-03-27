@@ -19,9 +19,18 @@ class MathProvider extends ChangeNotifier {
   String? get error => _error;
   MathProblem? get currentProblem => _currentProblem;
 
+  bool _isInitialized = false;
+  bool get isInitialized => _isInitialized;
+
   MathProvider() {
-    loadHistory();
-    loadFavorites();
+    _init();
+  }
+
+  Future<void> _init() async {
+    await loadHistory();
+    await loadFavorites();
+    _isInitialized = true;
+    notifyListeners();
   }
 
   Future<void> loadHistory() async {
@@ -75,7 +84,9 @@ class MathProvider extends ChangeNotifier {
       // Save to DB — await to prevent data loss
       try {
         await _dbService.insertProblem(result);
-      } catch (_) {}
+      } catch (e) {
+        print('DB: Failed to insert problem: $e');
+      }
       return result;
     } catch (e) {
       _isLoading = false;
@@ -96,7 +107,9 @@ class MathProvider extends ChangeNotifier {
     notifyListeners();
     try {
       await _dbService.toggleFavorite(problem.id, problem.isFavorite);
-    } catch (_) {}
+    } catch (e) {
+      print('DB: Failed to toggle favorite: $e');
+    }
   }
 
   Future<void> deleteProblem(String id) async {
@@ -105,13 +118,17 @@ class MathProvider extends ChangeNotifier {
     notifyListeners();
     try {
       await _dbService.deleteProblem(id);
-    } catch (_) {}
+    } catch (e) {
+      print('DB: Failed to delete problem: $e');
+    }
   }
 
   Future<void> clearHistory() async {
     try {
       await _dbService.clearHistory();
-    } catch (_) {}
+    } catch (e) {
+      print('DB: Failed to clear history: $e');
+    }
     _history = [];
     _favorites = [];
     notifyListeners();
@@ -161,9 +178,11 @@ class MathProvider extends ChangeNotifier {
           _history.insert(0, grouped);
           try {
             await _dbService.insertProblem(grouped);
-          } catch (_) {}
-        } catch (_) {
-          // Skip failed problems, continue with rest
+          } catch (e) {
+            print('DB: Failed to insert grouped problem: $e');
+          }
+        } catch (e) {
+          print('Solve: Failed to solve problem "$trimmed": $e');
         }
         // Notify after each solve so UI can update progress
         notifyListeners();

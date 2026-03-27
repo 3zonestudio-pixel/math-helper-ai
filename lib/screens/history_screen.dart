@@ -162,29 +162,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           problem: problem,
                           onTap: () => _viewSolution(context, problem),
                           onFavoriteToggle: () => mathProvider.toggleFavorite(problem),
-                          onDelete: () async {
-                            final confirm = await showDialog<bool>(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: Text(l10n.delete),
-                                content: Text('Delete "${problem.problem}"?'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context, false),
-                                    child: Text(l10n.cancel),
-                                  ),
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context, true),
-                                    child: Text(l10n.confirm,
-                                        style: const TextStyle(color: AppTheme.errorRed)),
-                                  ),
-                                ],
-                              ),
-                            );
-                            if (confirm == true) {
-                              mathProvider.deleteProblem(problem.id);
-                            }
-                          },
+                          onDelete: () => mathProvider.deleteProblem(problem.id),
                         ),
                       );
                     },
