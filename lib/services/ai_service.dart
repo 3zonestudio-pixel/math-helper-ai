@@ -150,18 +150,19 @@ class AiService {
 - Splits or merges numbers: "1 2" may be "12", "34" may be "3" and "4" separately
 - Misreads handwriting: confuses similar-looking characters
 
-YOUR TASK: Reconstruct the EXACT intended math expression(s). Think carefully about what the student likely wrote.
+YOUR TASK: Reconstruct the EXACT intended math expression(s) or questions. Think carefully about what the student likely wrote.
 
 RULES:
-- Return ONLY the corrected math expression(s), nothing else — no explanation
+- Return ONLY the corrected text, nothing else — no explanation
 - Use plain math notation: +, -, ×, ÷, =, ^, √, π, ∫
 - Use ^ for exponents: x^2 for x squared
 - If it looks like an equation, include the = sign
-- MULTIPLE PROBLEMS: separate each on its own line, numbered:
-  1) first problem
-  2) second problem
-- Preserve existing numbering (Q1, #1, 1., etc.)
-- Keep instruction words like "solve", "find", "evaluate", "simplify"
+- MULTIPLE PROBLEMS: Keep ALL questions numbered exactly as in the original
+- MULTIPLE CHOICE: Preserve ALL answer options (a, b, c, d) for each question exactly as written
+- Preserve existing numbering (Q1, #1, 1., 1), etc.)
+- Keep instruction words like "solve", "find", "evaluate", "simplify", "choose the correct answer"
+- Keep section headers, instructions, and all non-math text that is part of the exam/worksheet
+- Do NOT merge, remove, or reorder questions — keep every single one
 - Do NOT solve — only correct the OCR errors
 - If truly unrecognizable, reply: ERROR''';
 
@@ -182,7 +183,7 @@ RULES:
                 {'role': 'user', 'content': rawOcrText},
               ],
               'temperature': 0.0,
-              'max_tokens': 256,
+              'max_tokens': 500,
             }),
           ).timeout(const Duration(seconds: 12));
 
