@@ -163,8 +163,8 @@ class OcrService {
   Future<String?> _preprocessImage(String imagePath, {bool binarize = false}) async {
     try {
       return await compute(
-        _preprocessImageIsolate,
-        _PreprocessParams(imagePath, binarize),
+        preprocessImageIsolate,
+        PreprocessParams(imagePath, binarize),
       );
     } catch (e) {
       print('OCR: Preprocess failed: $e');
@@ -375,14 +375,14 @@ class OcrService {
 }
 
 /// Parameters for isolate-based image preprocessing
-class _PreprocessParams {
+class PreprocessParams {
   final String imagePath;
   final bool binarize;
-  _PreprocessParams(this.imagePath, this.binarize);
+  PreprocessParams(this.imagePath, this.binarize);
 }
 
-/// Top-level function for compute() isolate — must be top-level or static
-Future<String?> _preprocessImageIsolate(_PreprocessParams params) async {
+/// Top-level function for compute() isolate — must be public for isolate access
+Future<String?> preprocessImageIsolate(PreprocessParams params) async {
   try {
     final file = File(params.imagePath);
     final bytes = await file.readAsBytes();
