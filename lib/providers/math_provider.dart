@@ -144,7 +144,7 @@ class MathProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Solve multiple problems in sequence. Returns list of solved problems.
+  /// Solve multiple problems in parallel for speed. Returns list of solved problems.
   Future<List<MathProblem>> solveMultipleProblems({
     required List<String> problems,
     required String language,
@@ -159,44 +159,49 @@ class MathProvider extends ChangeNotifier {
     final groupId = DateTime.now().millisecondsSinceEpoch.toString();
     final results = <MathProblem>[];
     try {
-      for (final problem in problems) {
-        final trimmed = problem.trim();
-        if (trimmed.isEmpty) continue;
-        try {
-          final result = await _aiService.solveProblem(
-            problem: trimmed,
-            language: language,
-            difficulty: difficulty,
-            explanationMode: explanationMode,
+      // Solve all problems in parallel
+      final futures = problems.where((p) => p.trim().isNotEmpty).map((problem) {
+        return _aiService.solveProblem(
+          problem: problem.trim(),
+          language: language,
+          difficulty: difficulty,
+          explanationMode: explanationMode,
+          category: category,
+        ).catchError((e) {
+          print('Solve: Failed to solve "$problem": $e');
+          return MathProblem(
+            problem: problem.trim(),
+            solution: 'Error',
+            steps: [],
             category: category,
+            difficulty: difficulty,
+            language: language,
           );
-          // Re-create with groupId
-          final grouped = MathProblem(
-            id: result.id,
-            problem: result.problem,
-            solution: result.solution,
-            steps: result.steps,
-            category: result.category,
-            difficulty: result.difficulty,
-            language: result.language,
-            createdAt: result.createdAt,
-            isFavorite: result.isFavorite,
-            groupId: groupId,
-          );
-          results.add(grouped);
-          // Add to history immediately
-          _history.insert(0, grouped);
-          try {
-            await _dbService.insertProblem(grouped);
-          } catch (e) {
-            print('DB: Failed to insert grouped problem: $e');
-          }
-        } catch (e) {
-          print('Solve: Failed to solve problem "$trimmed": $e');
-        }
-        // Notify after each solve so UI can update progress
-        notifyListeners();
+        });
+      }).toList();
+
+      final solved = await Future.wait(futures);
+      for (final result in solved) {
+        if (result.solution == 'Error') continue;
+        final grouped = MathProblem(
+          id: result.id,
+          problem: result.problem,
+          solution: result.solution,
+          steps: result.steps,
+          category: result.category,
+          difficulty: result.difficulty,
+          language: result.language,
+          createdAt: result.createdAt,
+          isFavorite: result.isFavorite,
+          groupId: groupId,
+        );
+        results.add(grouped);
+        _history.insert(0, grouped);
+        _dbService.insertProblem(grouped).catchError((e) {
+          print('DB: Failed to insert grouped problem: $e');
+        });
       }
+      notifyListeners();
     } finally {
       _isLoading = false;
       notifyListeners();

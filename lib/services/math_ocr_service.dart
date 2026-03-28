@@ -49,14 +49,51 @@ class MathOcrService {
       // Step 4: Unicode normalization + spacing cleanup
       final cleaned = _normalizeAndClean(corrected);
 
-      // Step 5: AI reconstruction (if available)
-      final aiResult = await AiService.reconstructMathFromOcr(cleaned);
+      // Step 5: AI reconstruction — only if text looks garbled
+      // Skip AI call for clean-looking text (saves ~5-8s)
+      if (_needsAiReconstruction(cleaned)) {
+        final aiResult = await AiService.reconstructMathFromOcr(cleaned);
+        return aiResult ?? cleaned;
+      }
 
-      return aiResult ?? cleaned;
+      return cleaned;
     } catch (e, st) {
       print('MathOCR: Unexpected error: $e\n$st');
       return '';
     }
+  }
+
+  /// Heuristic: does the text need AI to clean up further?
+  /// Returns false if it already looks like clean math.
+  bool _needsAiReconstruction(String text) {
+    if (text.trim().isEmpty) return false;
+
+    final lines = text.split('\n').where((l) => l.trim().isNotEmpty).toList();
+    if (lines.isEmpty) return false;
+
+    // Count lines that look like valid math or instructions
+    int cleanLines = 0;
+    final mathPattern = RegExp(r'[\d+\-×÷*/=^√∫xyzπ()]');
+    final wordPattern = RegExp(
+      r'\b(solve|find|calculate|simplify|evaluate|factor|integrate|'
+      r'derive|limit|sum|area|volume|perimeter|prove|show|graph|'
+      r'choose|select|answer|correct|true|false)\b',
+      caseSensitive: false,
+    );
+    for (final line in lines) {
+      if (mathPattern.hasMatch(line) || wordPattern.hasMatch(line)) {
+        cleanLines++;
+      }
+    }
+
+    // If most lines look clean, skip AI reconstruction
+    final cleanRatio = cleanLines / lines.length;
+    if (cleanRatio >= 0.7) return false;
+
+    // If very short text (single expression), corrections are enough
+    if (text.length < 30 && mathPattern.hasMatch(text)) return false;
+
+    return true;
   }
 
   /// Extract text preserving spatial structure.
@@ -201,6 +238,16 @@ class MathOcrService {
 
     // "D" between digits → "0" (handwriting)
     r = r.replaceAllMapped(RegExp(r'(?<=\d)D(?=\d)'), (m) => '0');
+
+    // "b" between digits → "6" (handwriting)
+    r = r.replaceAllMapped(RegExp(r'(?<=\d)b(?=\d)'), (m) => '6');
+
+    // "o" in pure-number context → "0"
+    r = r.replaceAllMapped(RegExp(r'(?<=\d)o(?=\d)'), (m) => '0');
+
+    // "=" misread as "-" between two expressions
+    // "t" misread as "+" in math context
+    r = r.replaceAllMapped(RegExp(r'(\d)\s*t\s*(\d)'), (m) => '${m.group(1)} + ${m.group(2)}');
 
     // ════════════════════════════════════════════════════
     // 2. UNIT EXPONENTS (must run BEFORE variable-exponent detection)

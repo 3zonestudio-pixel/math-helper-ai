@@ -143,76 +143,55 @@ class AiService {
     if (!isConfigured) return null;
     if (!await _canMakeRequest()) return null;
 
-    const prompt = '''You are an expert math OCR correction engine. You receive garbled text extracted by a basic OCR from a photo of handwritten or printed math. The OCR makes MANY errors:
-- Confuses similar characters: 1/l/I, 0/O, 5/S, 2/Z, 8/B, 6/b, 9/g/q, x/×, +/t, =/-, (/C, )/J
-- Misses superscripts/subscripts: x^2 usually means x², not x·2
-- Drops or adds symbols: missing =, extra spaces, broken fractions
-- Splits or merges numbers: "1 2" may be "12", "34" may be "3" and "4" separately
-- Misreads handwriting: confuses similar-looking characters
+    const prompt = '''Math OCR correction engine. Fix garbled OCR text from math photos.
 
-EXAMPLES of OCR input → correct output:
+Common OCR errors: 1/l/I, 0/O, 5/S, 2/Z, 8/B, x/×, (/C, )/J. Superscripts lost: x^2 means x squared.
+
+EXAMPLES:
 • "5o|ve 2x + 3 = 7" → "Solve 2x + 3 = 7"
 • "x^2 + 3x - 4 = O" → "x^2 + 3x - 4 = 0"
-• "f(x) = 2x^3 - 5x^2 + l" → "f(x) = 2x^3 - 5x^2 + 1"
 • "Ca1culate 15 ÷ 3 + 2 x 4" → "Calculate 15 ÷ 3 + 2 × 4"
 • "1. 3x + 2 = 8\n2. x^2 - 9 = O" → "1. 3x + 2 = 8\n2. x^2 - 9 = 0"
-• "Choose the correct answer:\na) l2  b) 15  c) l8  d) 2l" → "Choose the correct answer:\na) 12  b) 15  c) 18  d) 21"
 
-YOUR TASK: Reconstruct the EXACT intended math expression(s) or questions. Think carefully about what the student likely wrote.
+Return ONLY corrected text. Keep ALL questions/numbering/options. Do NOT solve. Use ^ for exponents. If unrecognizable: ERROR''';
 
-RULES:
-- Return ONLY the corrected text, nothing else — no explanation
-- Use plain math notation: +, -, ×, ÷, =, ^, √, π, ∫
-- Use ^ for exponents: x^2 for x squared
-- If it looks like an equation, include the = sign
-- MULTIPLE PROBLEMS: Keep ALL questions numbered exactly as in the original
-- MULTIPLE CHOICE: Preserve ALL answer options (a, b, c, d) for each question exactly as written
-- Preserve existing numbering (Q1, #1, 1., 1), etc.)
-- Keep instruction words like "solve", "find", "evaluate", "simplify", "choose the correct answer"
-- Keep section headers, instructions, and all non-math text that is part of the exam/worksheet
-- Do NOT merge, remove, or reorder questions — keep every single one
-- Do NOT solve — only correct the OCR errors
-- If truly unrecognizable, reply: ERROR''';
-
-    for (int attempt = 0; attempt < 2; attempt++) {
+    // Single attempt, tight timeout — speed over retries
+    try {
+      final client = http.Client();
       try {
-        final client = http.Client();
-        try {
-          final response = await client.post(
-            Uri.parse(_apiUrl),
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $_apiKey',
-            },
-            body: jsonEncode({
-              'model': _model,
-              'messages': [
-                {'role': 'system', 'content': prompt},
-                {'role': 'user', 'content': rawOcrText},
-              ],
-              'temperature': 0.0,
-              'max_tokens': 800,
-            }),
-          ).timeout(const Duration(seconds: 15));
+        final response = await client.post(
+          Uri.parse(_apiUrl),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $_apiKey',
+          },
+          body: jsonEncode({
+            'model': _model,
+            'messages': [
+              {'role': 'system', 'content': prompt},
+              {'role': 'user', 'content': rawOcrText},
+            ],
+            'temperature': 0.0,
+            'max_tokens': 400,
+          }),
+        ).timeout(const Duration(seconds: 8));
 
-          if (response.statusCode == 200) {
-            final data = jsonDecode(response.body);
-            final choices = data['choices'];
-            if (choices != null && choices is List && choices.isNotEmpty) {
-              final content = (choices[0]['message']?['content'] as String?)?.trim();
-              if (content != null && content.isNotEmpty && content != 'ERROR') {
-                await _recordRequest();
-                return content;
-              }
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          final choices = data['choices'];
+          if (choices != null && choices is List && choices.isNotEmpty) {
+            final content = (choices[0]['message']?['content'] as String?)?.trim();
+            if (content != null && content.isNotEmpty && content != 'ERROR') {
+              await _recordRequest();
+              return content;
             }
           }
-          if (attempt == 0) continue;
-        } finally {
-          client.close();
         }
-      } catch (_) {
-        if (attempt == 0) continue;
+      } finally {
+        client.close();
       }
+    } catch (_) {
+      // Timeout or error — fall through to raw OCR text
     }
     return null; // AI reconstruction failed — caller uses raw OCR text
   }
@@ -327,9 +306,9 @@ RULES:
               {'role': 'user', 'content': normalizedProblem},
             ],
             'temperature': 0.1,
-            'max_tokens': 500,
+            'max_tokens': 350,
           }),
-        ).timeout(const Duration(seconds: 25));
+        ).timeout(const Duration(seconds: 12));
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
@@ -397,26 +376,25 @@ RULES:
       'it': 'Italian',
     };
     final langName = langNames[language] ?? 'English';
-    final detailLevel = mode == 'simple' ? 'brief and concise' : 'detailed and thorough';
 
-    return '''You are a math solver. RESPOND ENTIRELY IN $langName. Level: $difficulty. Be $detailLevel.
+    return '''You are a fast math solver. RESPOND ENTIRELY IN $langName. Level: $difficulty.
 
-LANGUAGE RULE (CRITICAL): Your ENTIRE response — solution, every step title, every step description, every tip — MUST be written 100% in $langName. NEVER mix languages. Do NOT use English words or phrases when responding in another language. Translate ALL mathematical terminology into $langName.
+LANGUAGE RULE: Your ENTIRE response MUST be 100% in $langName. Translate ALL math terminology.
 
 RULES:
-1. Input may be messy (OCR/typos). Reconstruct the intended problem first.
-2. Smart interpretation: "x2" = x squared, figure out word order, pick most likely reading.
-3. ACCURACY: Find ALL solutions. Verify by substitution.
-4. Show clear steps with WHAT and WHY.
-5. PLAIN TEXT only: +, -, *, /, =, ^, sqrt(), (a)/(b). No LaTeX commands. Unicode OK.
+1. Input may be messy OCR. Reconstruct the intended problem.
+2. "x2" = x squared. Pick the most likely reading.
+3. Find ALL solutions. Verify by substitution.
+4. Keep steps SHORT — just the key computation, no filler.
+5. PLAIN TEXT only: +, -, *, /, =, ^, sqrt(). No LaTeX. Unicode OK.
 
 FORMAT:
 SOLUTION: [final answer]
-STEP 1: [title in $langName]
-[computation]
-STEP 2: [title in $langName]
-[computation]
-TIP: [insight in $langName]''';
+STEP 1: [short title]
+[key computation only]
+STEP 2: [short title]
+[key computation only]
+TIP: [one-line insight]''';
   }
 
   MathProblem _parseAiResponse(
