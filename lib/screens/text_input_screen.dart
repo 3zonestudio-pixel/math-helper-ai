@@ -336,41 +336,78 @@ class _TextInputScreenState extends State<TextInputScreen> {
   }
 
   /// Split input text into individual math problems.
-  /// Detects numbered lists, newline-separated expressions, etc.
+  /// Detects: numbered lists, blank-line separated, semicolons,
+  /// and equation-per-line patterns.
   static List<String> _splitProblems(String text) {
-    final lines = text.split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).toList();
-    if (lines.length <= 1) return [text.trim()];
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return [trimmed];
 
-    // Check if lines are numbered (e.g. "1) ...", "1. ...", "Q1: ...", "#1 ...")
-    final numberedPattern = RegExp(r'^(?:Q?\.?\s*#?\s*\d+[.):\-]\s*|\(?\d+[).]\s*)', caseSensitive: false);
-    final hasNumbering = lines.where((l) => numberedPattern.hasMatch(l)).length >= 2;
+    // Pattern for numbered problems: "1) ", "1. ", "Q1: ", "#1 ", "(1) " etc.
+    final numberedPattern = RegExp(
+      r'^(?:Q?\.?\s*#?\s*\d+[.):\-]\s*|\(?\d+[).]\s*)',
+      caseSensitive: false,
+    );
 
-    if (hasNumbering) {
-      // Merge continuation lines (lines without numbering) into the previous problem
+    // ── Strategy 1: Numbered problems ──
+    final allLines = text.split('\n').map((l) => l.trim()).toList();
+    final nonEmptyLines = allLines.where((l) => l.isNotEmpty).toList();
+    final numberedCount = nonEmptyLines.where((l) => numberedPattern.hasMatch(l)).length;
+
+    if (numberedCount >= 2) {
       final problems = <String>[];
       String current = '';
-      for (final line in lines) {
+      for (final line in nonEmptyLines) {
         if (numberedPattern.hasMatch(line)) {
           if (current.isNotEmpty) problems.add(current.trim());
-          // Strip the number prefix
           current = line.replaceFirst(numberedPattern, '').trim();
         } else {
           current += ' $line';
         }
       }
       if (current.isNotEmpty) problems.add(current.trim());
-      if (problems.length >= 2) return problems;
+      final valid = problems.where((p) => p.isNotEmpty).toList();
+      if (valid.length >= 2) return valid;
     }
 
-    // If each line looks like a separate math expression, split by lines
-    final mathLinePattern = RegExp(r'[\d+\-×÷*/=^√∫xyzπ()\[\]]');
-    final mathLines = lines.where((l) => mathLinePattern.hasMatch(l)).toList();
-    if (mathLines.length >= 2 && mathLines.length == lines.length) {
-      return mathLines;
+    // ── Strategy 2: Blank-line separated blocks ──
+    final blocks = <String>[];
+    String currentBlock = '';
+    for (final line in allLines) {
+      if (line.isEmpty) {
+        if (currentBlock.trim().isNotEmpty) {
+          blocks.add(currentBlock.trim());
+          currentBlock = '';
+        }
+      } else {
+        if (currentBlock.isNotEmpty) currentBlock += ' ';
+        currentBlock += line;
+      }
+    }
+    if (currentBlock.trim().isNotEmpty) blocks.add(currentBlock.trim());
+    if (blocks.length >= 2) {
+      // Verify blocks look like math
+      final mathPattern = RegExp(r'[\d=+\-*/^√xyzπ]');
+      final mathBlocks = blocks.where((b) => mathPattern.hasMatch(b)).toList();
+      if (mathBlocks.length >= 2) return mathBlocks;
+    }
+
+    // ── Strategy 3: Semicolon separated ──
+    if (trimmed.contains(';')) {
+      final parts = trimmed.split(';').map((p) => p.trim()).where((p) => p.isNotEmpty).toList();
+      if (parts.length >= 2) return parts;
+    }
+
+    // ── Strategy 4: Each non-empty line is a separate math expression ──
+    if (nonEmptyLines.length >= 2) {
+      final mathPattern = RegExp(r'[\d=+\-*/^√×÷∫xyzπ()\[\]]');
+      final mathLines = nonEmptyLines.where((l) => mathPattern.hasMatch(l)).toList();
+      if (mathLines.length >= 2 && mathLines.length >= nonEmptyLines.length * 0.6) {
+        return mathLines;
+      }
     }
 
     // Single problem
-    return [text.trim()];
+    return [trimmed];
   }
 
   void _showErrorSnackBar(BuildContext context, MathProvider mathProvider) {

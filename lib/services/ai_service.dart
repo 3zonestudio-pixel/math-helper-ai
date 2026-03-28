@@ -387,6 +387,7 @@ RULES:
 3. Find ALL solutions. Verify by substitution.
 4. Keep steps SHORT — just the key computation, no filler.
 5. PLAIN TEXT only: +, -, *, /, =, ^, sqrt(). No LaTeX. Unicode OK.
+6. If input contains MULTIPLE problems, solve ONLY THE FIRST ONE. Ignore the rest.
 
 FORMAT:
 SOLUTION: [final answer]
