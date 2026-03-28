@@ -135,27 +135,27 @@ class AiService {
     if (model != null) _model = model;
   }
 
-  /// Use AI to reconstruct a clean math expression from raw OCR text.
-  /// ML Kit can't understand math structure — this lets the AI interpret
-  /// garbled OCR output and return the intended mathematical expression.
-  static Future<String?> reconstructMathFromOcr(String rawOcrText) async {
-    if (rawOcrText.trim().isEmpty) return null;
-    if (!isConfigured) return null;
-    if (!await _canMakeRequest()) return null;
+  /// Takes raw OCR text, uses AI to understand, fix OCR errors,
+  /// identify math problems, and separate them into individual items.
+  /// Returns a list of clean math problem strings.
+  static Future<List<String>> parseAndSeparateProblems(String rawOcrText) async {
+    if (rawOcrText.trim().isEmpty) return [];
+    if (!isConfigured) return [rawOcrText.trim()];
+    if (!await _canMakeRequest()) return [rawOcrText.trim()];
 
-    const prompt = '''Math OCR correction engine. Fix garbled OCR text from math photos.
+    const prompt = '''You are a math problem extractor. You receive raw OCR text scanned from a photo of math homework/exam/textbook.
 
-Common OCR errors: 1/l/I, 0/O, 5/S, 2/Z, 8/B, x/×, (/C, )/J. Superscripts lost: x^2 means x squared.
+Your job:
+1. Fix OCR errors (common: 0↔O, 1↔l↔I, 5↔S, 2↔Z, 8↔B, x↔×)
+2. Identify what is a math problem and what is not (ignore headers, names, dates, instructions like "show your work")
+3. Separate individual math problems
+4. Clean each problem into proper math notation
 
-EXAMPLES:
-• "5o|ve 2x + 3 = 7" → "Solve 2x + 3 = 7"
-• "x^2 + 3x - 4 = O" → "x^2 + 3x - 4 = 0"
-• "Ca1culate 15 ÷ 3 + 2 x 4" → "Calculate 15 ÷ 3 + 2 × 4"
-• "1. 3x + 2 = 8\n2. x^2 - 9 = O" → "1. 3x + 2 = 8\n2. x^2 - 9 = 0"
+RESPOND WITH ONLY the math problems, one per line. Use --- between problems.
+Use ^ for exponents, sqrt() for roots. Plain text only, no LaTeX.
+If there's only one problem, return just that one problem.
+If the text has no math at all, return: NONE''';
 
-Return ONLY corrected text. Keep ALL questions/numbering/options. Do NOT solve. Use ^ for exponents. If unrecognizable: ERROR''';
-
-    // Single attempt, tight timeout — speed over retries
     try {
       final client = http.Client();
       try {
@@ -172,18 +172,24 @@ Return ONLY corrected text. Keep ALL questions/numbering/options. Do NOT solve. 
               {'role': 'user', 'content': rawOcrText},
             ],
             'temperature': 0.0,
-            'max_tokens': 400,
+            'max_tokens': 500,
           }),
-        ).timeout(const Duration(seconds: 8));
+        ).timeout(const Duration(seconds: 10));
 
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
           final choices = data['choices'];
           if (choices != null && choices is List && choices.isNotEmpty) {
             final content = (choices[0]['message']?['content'] as String?)?.trim();
-            if (content != null && content.isNotEmpty && content != 'ERROR') {
+            if (content != null && content.isNotEmpty && content != 'NONE') {
               await _recordRequest();
-              return content;
+              // Split by --- separator
+              final problems = content
+                  .split('---')
+                  .map((p) => p.trim())
+                  .where((p) => p.isNotEmpty && p != 'NONE')
+                  .toList();
+              if (problems.isNotEmpty) return problems;
             }
           }
         }
@@ -191,9 +197,10 @@ Return ONLY corrected text. Keep ALL questions/numbering/options. Do NOT solve. 
         client.close();
       }
     } catch (_) {
-      // Timeout or error — fall through to raw OCR text
+      // Timeout or error — fall through to raw text
     }
-    return null; // AI reconstruction failed — caller uses raw OCR text
+    // AI failed — return raw text as single problem
+    return [rawOcrText.trim()];
   }
 
   static bool get isConfigured => _apiKey.isNotEmpty;
@@ -387,7 +394,6 @@ RULES:
 3. Find ALL solutions. Verify by substitution.
 4. Keep steps SHORT — just the key computation, no filler.
 5. PLAIN TEXT only: +, -, *, /, =, ^, sqrt(). No LaTeX. Unicode OK.
-6. If input contains MULTIPLE problems, solve ONLY THE FIRST ONE. Ignore the rest.
 
 FORMAT:
 SOLUTION: [final answer]

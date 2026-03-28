@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
 import '../services/math_ocr_service.dart';
+import '../services/ai_service.dart';
 import '../constants.dart';
 import '../providers/app_provider.dart';
 import '../providers/math_provider.dart';
@@ -549,9 +550,9 @@ class _CameraScreenState extends State<CameraScreen> {
         return;
       }
 
-      // Math-specialized OCR: ML Kit → math corrections → AI reconstruction
+      // Raw OCR scan — AI handles all interpretation
       if (mounted) {
-        setState(() => _processingStatus = 'Scanning math...');
+        setState(() => _processingStatus = 'Scanning text...');
       }
       final result = await _mathOcr.recognizeMath(image.path);
 
@@ -584,87 +585,29 @@ class _CameraScreenState extends State<CameraScreen> {
     }
   }
 
-  /// Split input text into individual math problems.
-  /// Detects: numbered lists, blank-line separated, semicolons,
-  /// and equation-per-line patterns.
-  static List<String> _splitProblems(String text) {
-    final trimmed = text.trim();
-    if (trimmed.isEmpty) return [trimmed];
-
-    final numberedPattern = RegExp(
-      r'^(?:Q?\.?\s*#?\s*\d+[.):\-]\s*|\(?\d+[).]\s*)',
-      caseSensitive: false,
-    );
-
-    // ── Strategy 1: Numbered problems ──
-    final allLines = text.split('\n').map((l) => l.trim()).toList();
-    final nonEmptyLines = allLines.where((l) => l.isNotEmpty).toList();
-    final numberedCount = nonEmptyLines.where((l) => numberedPattern.hasMatch(l)).length;
-
-    if (numberedCount >= 2) {
-      final problems = <String>[];
-      String current = '';
-      for (final line in nonEmptyLines) {
-        if (numberedPattern.hasMatch(line)) {
-          if (current.isNotEmpty) problems.add(current.trim());
-          current = line.replaceFirst(numberedPattern, '').trim();
-        } else {
-          current += ' $line';
-        }
-      }
-      if (current.isNotEmpty) problems.add(current.trim());
-      final valid = problems.where((p) => p.isNotEmpty).toList();
-      if (valid.length >= 2) return valid;
-    }
-
-    // ── Strategy 2: Blank-line separated blocks ──
-    final blocks = <String>[];
-    String currentBlock = '';
-    for (final line in allLines) {
-      if (line.isEmpty) {
-        if (currentBlock.trim().isNotEmpty) {
-          blocks.add(currentBlock.trim());
-          currentBlock = '';
-        }
-      } else {
-        if (currentBlock.isNotEmpty) currentBlock += ' ';
-        currentBlock += line;
-      }
-    }
-    if (currentBlock.trim().isNotEmpty) blocks.add(currentBlock.trim());
-    if (blocks.length >= 2) {
-      final mathPattern = RegExp(r'[\d=+\-*/^√xyzπ]');
-      final mathBlocks = blocks.where((b) => mathPattern.hasMatch(b)).toList();
-      if (mathBlocks.length >= 2) return mathBlocks;
-    }
-
-    // ── Strategy 3: Semicolon separated ──
-    if (trimmed.contains(';')) {
-      final parts = trimmed.split(';').map((p) => p.trim()).where((p) => p.isNotEmpty).toList();
-      if (parts.length >= 2) return parts;
-    }
-
-    // ── Strategy 4: Each non-empty line is a math expression ──
-    if (nonEmptyLines.length >= 2) {
-      final mathPattern = RegExp(r'[\d=+\-*/^√×÷∫xyzπ()\[\]]');
-      final mathLines = nonEmptyLines.where((l) => mathPattern.hasMatch(l)).toList();
-      if (mathLines.length >= 2 && mathLines.length >= nonEmptyLines.length * 0.6) {
-        return mathLines;
-      }
-    }
-
-    return [trimmed];
-  }
-
   Future<void> _directSolve(BuildContext context) async {
     if (_recognizedText == null || _recognizedText!.isEmpty) return;
 
-    setState(() => _isSolving = true);
+    setState(() {
+      _isSolving = true;
+      _processingStatus = 'Understanding math...';
+    });
 
     final appProvider = context.read<AppProvider>();
     final mathProvider = context.read<MathProvider>();
     final solveLanguage = _explainLanguage;
-    final problems = _splitProblems(_recognizedText!);
+
+    // AI parses raw OCR: fixes errors, identifies math, separates problems
+    final problems = await AiService.parseAndSeparateProblems(_recognizedText!);
+
+    if (!mounted) return;
+    setState(() => _processingStatus = '');
+
+    if (problems.isEmpty) {
+      setState(() => _isSolving = false);
+      _showSolveError(context, mathProvider);
+      return;
+    }
 
     if (problems.length >= 2) {
       final results = await mathProvider.solveMultipleProblems(
@@ -686,7 +629,7 @@ class _CameraScreenState extends State<CameraScreen> {
       }
     } else {
       final result = await mathProvider.solveProblem(
-        problem: _recognizedText!,
+        problem: problems.first,
         language: solveLanguage,
         difficulty: appProvider.difficulty,
         explanationMode: appProvider.explanationMode,
